@@ -1,7 +1,3 @@
-/*
- * Copyright (c) 2015 Pebble Technology
- */
-
 #pragma once
 
 #include <pebble.h>

@@ -1,7 +1,3 @@
-/*
- * Copyright (c) 2015 Pebble Technology
- */
-
 #pragma once
 
 #include <pebble.h>
@@ -15,8 +11,6 @@ typedef struct {
   TextLayer *pagination_layer;
   TextLayer *city_layer;
   Layer *horizontal_ruler_layer;
-  TextLayer *temperature_layer;
-  TextLayer *highlow_layer;
-  TextLayer *description_layer;
-  Layer *icon_layer;
+  TextLayer *time_layer;
+  TextLayer *relative_info_layer;
 } WorldClockData;

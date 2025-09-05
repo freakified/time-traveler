@@ -1,7 +1,3 @@
-/*
- * Copyright (c) 2015 Pebble Technology
- */
-
 #include <pebble.h>
 #include "world_clock_resources.h"
 

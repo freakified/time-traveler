@@ -1,7 +1,3 @@
-/*
- * Copyright (c) 2015 Pebble Technology
- */
-
 #pragma once
 
 #include <pebble.h>
@@ -19,24 +15,18 @@ typedef struct {
   } bg_color;
   char *city;
   struct {
-    int16_t value;
-    char text[8];
-  } temperature;
-  struct {
-    GDrawCommandImage *draw_command;
-    int32_t to_square_normalized;
-  } icon;
+    int16_t hour;
+    int16_t minute;
+    char text[12]; // "HH:MM" format
+  } time;
   struct {
     int16_t idx;
     int16_t num;
     char text[8];
   } pagination;
   struct {
-    int16_t high;
-    int16_t low;
-    char text[20];
-  } highlow;
-  char *description;
+    char text[20]; // "TODAY, +3 HRS" or "YESTERDAY, -5 HRS"
+  } relative_info;
 } WorldClockMainWindowViewModel;
 
 //! calls model's .announce_changed or does nothing if NULL
@@ -44,24 +34,18 @@ void world_clock_main_window_view_model_announce_changed(WorldClockMainWindowVie
 
 typedef struct {
   char *city;
-  char *description;
-  int icon;
-  int16_t current;
-  int16_t high;
-  int16_t low;
+  int16_t offset_hours; // offset from local time in hours
 } WorldClockDataPoint;
 
 typedef struct {
-  int16_t temperature;
-  int16_t low;
-  int16_t high;
+  int16_t hour;
+  int16_t minute;
+  int16_t offset;
 } WorldClockDataViewNumbers;
 
 
-void world_clock_view_model_set_highlow(WorldClockMainWindowViewModel *model, int16_t high, int16_t low);
-
-void world_clock_view_model_set_temperature(WorldClockMainWindowViewModel *model, int16_t value);
-void world_clock_view_model_set_icon(WorldClockMainWindowViewModel *model, GDrawCommandImage *image);
+void world_clock_view_model_set_time(WorldClockMainWindowViewModel *model, int16_t hour, int16_t minute);
+void world_clock_view_model_set_relative_info(WorldClockMainWindowViewModel *model, int16_t offset_hours);
 
 WorldClockDataViewNumbers world_clock_data_point_view_model_numbers(WorldClockDataPoint *data_point);
 

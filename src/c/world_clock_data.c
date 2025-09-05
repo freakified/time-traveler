@@ -1,10 +1,5 @@
-/*
- * Copyright (c) 2015 Pebble Technology
- */
-
 #include <pebble.h>
 #include "world_clock_data.h"
-#include "world_clock_resources.h"
 
 void world_clock_main_window_view_model_announce_changed(WorldClockMainWindowViewModel *model) {
   if (model->announce_changed) {
@@ -12,28 +7,80 @@ void world_clock_main_window_view_model_announce_changed(WorldClockMainWindowVie
   }
 }
 
-void world_clock_view_model_set_highlow(WorldClockMainWindowViewModel *model, int16_t high, int16_t low) {
-  model->highlow.high = high;
-  model->highlow.low = low;
-  snprintf(model->highlow.text, sizeof(model->highlow.text), "HI %d°, LO %d°", model->highlow.high, model->highlow.low);
+void world_clock_view_model_set_time(WorldClockMainWindowViewModel *model, int16_t hour, int16_t minute) {
+  model->time.hour = hour;
+  model->time.minute = minute;
+  snprintf(model->time.text, sizeof(model->time.text), "%02d:%02d", model->time.hour, model->time.minute);
 }
 
-void world_clock_view_model_set_temperature(WorldClockMainWindowViewModel *model, int16_t value) {
-  model->temperature.value = value;
-  snprintf(model->temperature.text, sizeof(model->temperature.text), "%d°", model->temperature.value);
-}
+void world_clock_view_model_set_relative_info(WorldClockMainWindowViewModel *model, int16_t offset_hours) {
+  // Get current local time to determine if it's today, yesterday, or tomorrow
+  time_t now = time(NULL);
+  struct tm *local_time = localtime(&now);
 
-void world_clock_view_model_set_icon(WorldClockMainWindowViewModel *model, GDrawCommandImage *image) {
-  free(model->icon.draw_command);
-  model->icon.draw_command = image;
-  world_clock_main_window_view_model_announce_changed(model);
+  // Calculate city time
+  time_t city_time_seconds = now + (offset_hours * 3600);
+  struct tm *city_time = gmtime(&city_time_seconds);
+
+  // Determine the day difference
+  int day_diff = city_time->tm_mday - local_time->tm_mday;
+
+  // Handle month/year boundaries
+  if (city_time->tm_mon != local_time->tm_mon) {
+    if (city_time->tm_mon > local_time->tm_mon) {
+      day_diff = 1; // Next month, assume tomorrow
+    } else {
+      day_diff = -1; // Previous month, assume yesterday
+    }
+  } else if (city_time->tm_year != local_time->tm_year) {
+    if (city_time->tm_year > local_time->tm_year) {
+      day_diff = 1; // Next year, assume tomorrow
+    } else {
+      day_diff = -1; // Previous year, assume yesterday
+    }
+  }
+
+  char day_str[10];
+  if (day_diff == 0) {
+    strcpy(day_str, "TODAY");
+  } else if (day_diff == 1) {
+    strcpy(day_str, "TOMORROW");
+  } else if (day_diff == -1) {
+    strcpy(day_str, "YESTERDAY");
+  } else {
+    strcpy(day_str, "TODAY"); // Fallback
+  }
+
+  if (offset_hours == 0) {
+    snprintf(model->relative_info.text, sizeof(model->relative_info.text), "%s, SAME TIME", day_str);
+  } else if (offset_hours > 0) {
+    snprintf(model->relative_info.text, sizeof(model->relative_info.text), "%s, +%d HRS", day_str, offset_hours);
+  } else {
+    snprintf(model->relative_info.text, sizeof(model->relative_info.text), "%s, %d HRS", day_str, offset_hours);
+  }
 }
 
 WorldClockDataViewNumbers world_clock_data_point_view_model_numbers(WorldClockDataPoint *data_point) {
+  // Get current local time
+  time_t now = time(NULL);
+  struct tm *current_local = localtime(&now);
+
+  // Calculate city time by adding offset to current time components
+  int city_hour = current_local->tm_hour + data_point->offset_hours;
+  int city_min = current_local->tm_min;
+
+  // Normalize the hour (handle overflow/underflow)
+  while (city_hour >= 24) {
+    city_hour -= 24;
+  }
+  while (city_hour < 0) {
+    city_hour += 24;
+  }
+
   return (WorldClockDataViewNumbers){
-      .temperature = data_point->current,
-      .high = data_point->high,
-      .low = data_point->low,
+      .hour = city_hour,
+      .offset = data_point->offset_hours,
+      .minute = city_min,
   };
 }
 
@@ -41,7 +88,6 @@ int world_clock_index_of_data_point(WorldClockDataPoint *dp);
 
 void world_clock_view_model_fill_strings_and_pagination(WorldClockMainWindowViewModel *view_model, WorldClockDataPoint *data_point) {
   view_model->city = data_point->city;
-  view_model->description = data_point->description;
 
   view_model->pagination.idx = (int16_t)(1 + world_clock_index_of_data_point(data_point));
   view_model->pagination.num = (int16_t)world_clock_num_data_points();
@@ -49,15 +95,9 @@ void world_clock_view_model_fill_strings_and_pagination(WorldClockMainWindowView
   world_clock_main_window_view_model_announce_changed(view_model);
 }
 
-
-GDrawCommandImage *world_clock_data_point_create_icon(WorldClockDataPoint *data_point) {
-  return world_clock_resources_get_icon(data_point->icon);
-}
-
-
 void world_clock_view_model_fill_numbers(WorldClockMainWindowViewModel *model, WorldClockDataViewNumbers numbers) {
-  world_clock_view_model_set_temperature(model, numbers.temperature);
-  world_clock_view_model_set_highlow(model, numbers.high, numbers.low);
+  world_clock_view_model_set_time(model, numbers.hour, numbers.minute);
+  world_clock_view_model_set_relative_info(model, numbers.offset);
 }
 
 void world_clock_view_model_fill_colors(WorldClockMainWindowViewModel *model, GColor color) {
@@ -67,7 +107,8 @@ void world_clock_view_model_fill_colors(WorldClockMainWindowViewModel *model, GC
 }
 
 GColor world_clock_data_point_color(WorldClockDataPoint *data_point) {
-  return data_point->current > 90 ? GColorOrange : GColorPictonBlue;
+  // Use offset to determine color - larger offsets get different colors
+  return data_point->offset_hours > 10 ? GColorOrange : GColorPictonBlue;
 }
 
 void world_clock_view_model_fill_all(WorldClockMainWindowViewModel *model, WorldClockDataPoint *data_point) {
@@ -75,7 +116,6 @@ void world_clock_view_model_fill_all(WorldClockMainWindowViewModel *model, World
   memset(model, 0, sizeof(*model));
   model->announce_changed = annouce_changed;
   world_clock_view_model_fill_strings_and_pagination(model, data_point);
-  world_clock_view_model_set_icon(model, world_clock_data_point_create_icon(data_point));
   world_clock_view_model_fill_colors(model, world_clock_data_point_color(data_point));
   world_clock_view_model_fill_numbers(model, world_clock_data_point_view_model_numbers(data_point));
 
@@ -83,41 +123,25 @@ void world_clock_view_model_fill_all(WorldClockMainWindowViewModel *model, World
 }
 
 void world_clock_view_model_deinit(WorldClockMainWindowViewModel *model) {
-  world_clock_view_model_set_icon(model, NULL);
+  // No cleanup needed for world clock
 }
 
 static WorldClockDataPoint s_data_points[] = {
     {
-        .city = "PALO ALTO",
-        .description = "Light Rain.",
-        .icon = WORLD_CLOCK_ICON_LIGHT_RAIN,
-        .current = 68,
-        .high = 70,
-        .low = 60,
+        .city = "NEW YORK",
+        .offset_hours = -5, // EST: UTC-5
     },
     {
-        .city = "LOS ANGELES",
-        .description = "Clear throughout the day.",
-        .icon = WORLD_CLOCK_ICON_SUNNY_DAY,
-        .current = 100,
-        .high = 100,
-        .low = 80,
+        .city = "LONDON",
+        .offset_hours = 0, // GMT: UTC+0
     },
     {
-        .city = "SAN FRANCISCO",
-        .description = "Rain and Fog.",
-        .icon = WORLD_CLOCK_ICON_HEAVY_SNOW,
-        .current = 60,
-        .high = 62,
-        .low = 56,
+        .city = "TOKYO",
+        .offset_hours = 9, // JST: UTC+9
     },
     {
-        .city = "SAN DIEGO",
-        .description = "Surfboard :)",
-        .icon = WORLD_CLOCK_ICON_GENERIC_WEATHER,
-        .current = 110,
-        .high = 120,
-        .low = 9,
+        .city = "SYDNEY",
+        .offset_hours = 10, // AEST: UTC+10
     },
 };
 

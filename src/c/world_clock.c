@@ -1,12 +1,7 @@
-/*
- * Copyright (c) 2015 Pebble Technology
- */
-
 #include <pebble.h>
 #include "world_clock_private.h"
 #include "world_clock_animations.h"
 #include "world_clock_data.h"
-#include "gdraw_command_transforms.h"
 
 #define STATUS_BAR_HEIGHT 16
 
@@ -14,7 +9,6 @@ static Window *s_main_window;
 
 static const int16_t MARGIN = 8;
 static const int16_t ICON_DIMENSIONS = 48;
-
 
 ////////////////////
 // update procs for our three custom layers
@@ -44,21 +38,6 @@ static void horizontal_ruler_update_proc(Layer *layer, GContext *ctx) {
 
   graphics_context_set_stroke_color(ctx, PBL_IF_COLOR_ELSE(GColorWhite, GColorBlack));
   graphics_draw_line(ctx, GPoint(0, yy), GPoint(bounds.size.w, yy));
-}
-
-static void icon_layer_update_proc(Layer *layer, GContext *ctx) {
-  WorldClockData *data = window_get_user_data(s_main_window);
-  WorldClockMainWindowViewModel *model = &data->view_model;
-  GDrawCommandImage *original_icon = model->icon.draw_command;
-  if (!original_icon) {
-    return;
-  }
-
-  GDrawCommandImage *temp_copy = gdraw_command_image_clone(original_icon);
-  attract_draw_command_image_to_square(temp_copy, model->icon.to_square_normalized);
-  graphics_context_set_antialiased(ctx, true);
-  gdraw_command_image_draw(ctx, temp_copy, GPoint(0, 0));
-  free(temp_copy);
 }
 
 ////////////////////
@@ -93,15 +72,44 @@ static void set_data_point(WorldClockData *data, WorldClockDataPoint *dp) {
   world_clock_view_model_fill_all(&data->view_model, dp);
 }
 
+static void update_status_bar_time() {
+   WorldClockData *data = window_get_user_data(s_main_window);
+
+   // Get current local time
+   time_t now = time(NULL);
+   struct tm *local_time = localtime(&now);
+
+   // Format time for status bar (12-hour format)
+   static char time_str[] = "00:00";
+   strftime(time_str, sizeof(time_str), "%I:%M %p", local_time);
+
+   // Remove leading zero from hour
+   if (time_str[0] == '0') {
+     memmove(time_str, time_str + 1, strlen(time_str));
+   }
+
+   text_layer_set_text(data->fake_statusbar, time_str);
+}
+
+static void prv_handle_minute_tick(struct tm *tick_time, TimeUnits units_changed) {
+  WorldClockData *data = window_get_user_data(s_main_window);
+
+   // Update status bar time
+   update_status_bar_time();
+
+   // Update world clock times
+   WorldClockDataViewNumbers numbers = world_clock_data_point_view_model_numbers(data->data_point);
+   world_clock_view_model_fill_numbers(&data->view_model, numbers);
+}
+
 static void view_model_changed(struct WorldClockMainWindowViewModel *arg) {
   WorldClockMainWindowViewModel *model = (WorldClockMainWindowViewModel *)arg;
 
   WorldClockData *data = window_get_user_data(s_main_window);
 
   text_layer_set_text(data->city_layer, model->city);
-  text_layer_set_text(data->temperature_layer, model->temperature.text);
-  text_layer_set_text(data->highlow_layer, model->highlow.text);
-  text_layer_set_text(data->description_layer, model->description);
+  text_layer_set_text(data->time_layer, model->time.text);
+  text_layer_set_text(data->relative_info_layer, model->relative_info.text);
   text_layer_set_text(data->pagination_layer, model->pagination.text);
 
   // make sure to redraw (if no string pointer changed none of the layers would be dirty)
@@ -120,25 +128,12 @@ static void main_window_load(Window *window) {
   layer_set_update_proc(data->horizontal_ruler_layer, horizontal_ruler_update_proc);
   layer_add_child(window_layer, data->horizontal_ruler_layer);
 
-  const int16_t narrow_buffer = 5; // current whitespacing would trim 3-digit temperature otherwise
-  const int16_t narrow = ICON_DIMENSIONS + 2 - narrow_buffer;
   init_text_layer(window_layer, &data->city_layer, 23, 30, 0, FONT_KEY_GOTHIC_18_BOLD);
-  const int16_t temperature_top = 49;
-  init_text_layer(window_layer, &data->temperature_layer, temperature_top, 40, narrow, FONT_KEY_LECO_38_BOLD_NUMBERS);
-  init_text_layer(window_layer, &data->highlow_layer, 91, 19, narrow, FONT_KEY_GOTHIC_14);
-  const int16_t description_top = 108;
-  const int16_t description_height = bounds.size.h - description_top;
-  init_text_layer(window_layer, &data->description_layer, description_top, description_height, 0, FONT_KEY_GOTHIC_24_BOLD);
+  const int16_t time_top = 49;
+  init_text_layer(window_layer, &data->time_layer, time_top, 40, 0, FONT_KEY_LECO_38_BOLD_NUMBERS);
+  init_text_layer(window_layer, &data->relative_info_layer, 91, 19, 0, FONT_KEY_GOTHIC_14);
 
-  GRect icon_rect = GRect(0, 0, ICON_DIMENSIONS, ICON_DIMENSIONS);
-  GRect alignment_rect = GRect(0, temperature_top + 10, bounds.size.w - MARGIN, 10);
-  grect_align(&icon_rect, &alignment_rect, GAlignTopRight, false);
-  data->icon_layer = layer_create(icon_rect);
-  layer_set_update_proc(data->icon_layer, icon_layer_update_proc);
-  layer_add_child(window_layer, data->icon_layer);
-
-  init_statusbar_text_layer(window_layer, &data->fake_statusbar);
-  text_layer_set_text(data->fake_statusbar, "9:41 AM");
+   init_statusbar_text_layer(window_layer, &data->fake_statusbar);
 
   init_statusbar_text_layer(window_layer, &data->pagination_layer);
   text_layer_set_text_alignment(data->pagination_layer, GTextAlignmentRight);
@@ -154,10 +149,8 @@ static void main_window_unload(Window *window) {
 
   layer_destroy(data->horizontal_ruler_layer);
   text_layer_destroy(data->city_layer);
-  text_layer_destroy(data->temperature_layer);
-  text_layer_destroy(data->highlow_layer);
-  text_layer_destroy(data->description_layer);
-  layer_destroy(data->icon_layer);
+  text_layer_destroy(data->time_layer);
+  text_layer_destroy(data->relative_info_layer);
   text_layer_destroy(data->fake_statusbar);
   text_layer_destroy(data->pagination_layer);
 }
@@ -167,6 +160,7 @@ static void after_scroll_swap_text(Animation *animation, bool finished, void *co
   WorldClockDataPoint *data_point = context;
 
   world_clock_view_model_fill_strings_and_pagination(&data->view_model, data_point);
+  world_clock_view_model_fill_numbers(&data->view_model, world_clock_data_point_view_model_numbers(data_point));
 }
 
 static Animation *create_anim_scroll_out(Layer *layer, uint32_t duration, int16_t dy) {
@@ -199,21 +193,20 @@ static Animation *create_outbound_anim(WorldClockData *data, ScrollDirection dir
   const int16_t to_dy = (direction == ScrollDirectionDown) ? -SCROLL_DIST_OUT : SCROLL_DIST_OUT;
 
   Animation *out_city = create_anim_scroll_out(text_layer_get_layer(data->city_layer), SCROLL_DURATION, to_dy);
-  Animation *out_description = create_anim_scroll_out(text_layer_get_layer(data->description_layer), SCROLL_DURATION, to_dy);
   Animation *out_ruler = create_anim_scroll_out(data->horizontal_ruler_layer, SCROLL_DURATION, to_dy);
 
-  return animation_spawn_create(out_city, out_description, out_ruler, NULL);
+  return animation_spawn_create(out_city, out_ruler, NULL);
 }
 
 static Animation *create_inbound_anim(WorldClockData *data, ScrollDirection direction) {
   const int16_t from_dy = (direction == ScrollDirectionDown) ? -SCROLL_DIST_IN : SCROLL_DIST_IN;
 
   Animation *in_city = create_anim_scroll_in(text_layer_get_layer(data->city_layer), SCROLL_DURATION, from_dy);
-  Animation *in_description = create_anim_scroll_in(text_layer_get_layer(data->description_layer), SCROLL_DURATION, from_dy);
-  Animation *in_highlow = create_anim_scroll_in(text_layer_get_layer(data->highlow_layer), SCROLL_DURATION, from_dy);
+  Animation *in_time = create_anim_scroll_in(text_layer_get_layer(data->time_layer), SCROLL_DURATION, from_dy);
+  Animation *in_relative_info = create_anim_scroll_in(text_layer_get_layer(data->relative_info_layer), SCROLL_DURATION, from_dy);
   Animation *in_ruler = create_anim_scroll_in(data->horizontal_ruler_layer, SCROLL_DURATION, from_dy);
 
-  return animation_spawn_create(in_city, in_description, in_highlow, in_ruler, NULL);
+  return animation_spawn_create(in_city, in_time, in_relative_info, in_ruler, NULL);
 }
 
 static Animation *animation_for_scroll(WorldClockData *data, ScrollDirection direction, WorldClockDataPoint *next_data_point) {
@@ -226,19 +219,16 @@ static Animation *animation_for_scroll(WorldClockData *data, ScrollDirection dir
   }, next_data_point);
   Animation *in_text = create_inbound_anim(data, direction);
 
+  // changing numbers (time and offset)
+  Animation *number_animation = world_clock_create_view_model_animation_numbers(view_model, next_data_point);
+  animation_set_duration(number_animation, SCROLL_DURATION * 2);
+
   // scrolling background color
   Animation *bg_animation = world_clock_create_view_model_animation_bgcolor(view_model, next_data_point);
   animation_set_duration(bg_animation, BACKGROUND_SCROLL_DURATION);
   animation_set_reverse(bg_animation, (direction == ScrollDirectionDown));
 
-  // morphing icon
-  Animation *icon_animations = world_clock_create_view_model_animation_icon(view_model, next_data_point, BACKGROUND_SCROLL_DURATION * 2);
-
-  // changing temperature text
-  Animation *number_animation = world_clock_create_view_model_animation_numbers(view_model, next_data_point);
-  animation_set_duration((Animation *) number_animation, SCROLL_DURATION * 2);
-
-  return animation_spawn_create(animation_sequence_create(out_text, in_text, NULL), bg_animation, icon_animations, number_animation, NULL);
+  return animation_spawn_create(animation_sequence_create(out_text, in_text, NULL), number_animation, bg_animation, NULL);
 }
 
 static Animation *animation_for_bounce(WorldClockData *data, ScrollDirection direction) {
@@ -293,11 +283,14 @@ static void init() {
     .load = main_window_load,
     .unload = main_window_unload,
   });
-  window_stack_push(s_main_window, true);
+   window_stack_push(s_main_window, true);
+   update_status_bar_time();
+   tick_timer_service_subscribe(MINUTE_UNIT, prv_handle_minute_tick);
 }
 
 static void deinit() {
-  window_destroy(s_main_window);
+   tick_timer_service_unsubscribe();
+   window_destroy(s_main_window);
 }
 
 int main(void) {

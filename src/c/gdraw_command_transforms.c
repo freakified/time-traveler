@@ -1,7 +1,3 @@
-/*
- * Copyright (c) 2015 Pebble Technology
- */
-
 #include <pebble.h>
 #include "gdraw_command_transforms.h"
 

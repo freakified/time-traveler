@@ -1,7 +1,3 @@
-/*
- * Copyright (c) 2015 Pebble Technology
- */
-
 #include <pebble.h>
 #include "world_clock_animations.h"
 #include "world_clock_private.h"
@@ -10,9 +6,9 @@ typedef void (*WeatherDataAnimatedNumbersSetter)(WorldClockData *data, WorldCloc
 
 static WorldClockDataViewNumbers get_animated_numbers(WorldClockMainWindowViewModel *model) {
   return (WorldClockDataViewNumbers) {
-    .temperature = model->temperature.value,
-    .low = model->highlow.low,
-    .high = model->highlow.high,
+    .hour = model->time.hour,
+    .minute = model->time.minute,
+    .offset = 0, // Not used for time
   };
 }
 
@@ -30,11 +26,11 @@ void property_animation_update_animated_numbers(PropertyAnimation *property_anim
   property_animation_from(property_animation, &from, sizeof(from), false);
   property_animation_to(property_animation, &to, sizeof(to), false);
 
-  WorldClockDataViewNumbers current = (WorldClockDataViewNumbers) {
-    .temperature = distance_interpolate(distance_normalized, from.temperature, to.temperature),
-    .high = distance_interpolate(distance_normalized, from.high, to.high),
-    .low = distance_interpolate(distance_normalized, from.low, to.low),
-  };
+   WorldClockDataViewNumbers current = (WorldClockDataViewNumbers) {
+     .hour = distance_interpolate(distance_normalized, from.hour, to.hour),
+     .offset = distance_interpolate(distance_normalized, from.offset, to.offset),
+     .minute = distance_interpolate(distance_normalized, from.minute, to.minute),
+   };
   PropertyAnimationImplementation *impl = (PropertyAnimationImplementation *) animation_get_implementation((Animation *) property_animation);
   WeatherDataAnimatedNumbersSetter setter = (WeatherDataAnimatedNumbersSetter)impl->accessors.setter.grect;
 
@@ -121,37 +117,4 @@ Animation *world_clock_create_view_model_animation_bgcolor(WorldClockMainWindowV
 
 // -------------------------
 
-static void update_icon_square_normalized(Animation *animation, const uint32_t distance_normalized) {
-  WorldClockMainWindowViewModel *view_model = view_model_from_animation(animation);
 
-  view_model->icon.to_square_normalized = distance_normalized;
-  world_clock_main_window_view_model_announce_changed(view_model);
-}
-
-static const PropertyAnimationImplementation s_icon_scquare_normalized_implementation = {
-  .base = {
-    .update = (AnimationUpdateImplementation) update_icon_square_normalized,
-  },
-};
-
-static void replace_icon_stop_handler(Animation *animation, bool finished, void *context) {
-  WorldClockMainWindowViewModel *view_model = view_model_from_animation(animation);
-  GDrawCommandImage *icon = context;
-  world_clock_view_model_set_icon(view_model, icon);
-}
-
-Animation *world_clock_create_view_model_animation_icon(WorldClockMainWindowViewModel *view_model, WorldClockDataPoint *next_data_point, uint32_t duration) {
-  Animation *icon_animation_to_square = (Animation *) property_animation_create(&s_icon_scquare_normalized_implementation, view_model, NULL, NULL);
-  animation_set_duration(icon_animation_to_square, duration / 2);
-  animation_set_curve(icon_animation_to_square, AnimationCurveEaseIn);
-
-  Animation *icon_animation_from_square = animation_clone(icon_animation_to_square);
-  animation_set_reverse(icon_animation_from_square, true);
-
-  GDrawCommandImage *icon = world_clock_data_point_create_icon(next_data_point);
-  animation_set_handlers(icon_animation_to_square, (AnimationHandlers) {
-    .stopped = replace_icon_stop_handler,
-  }, icon);
-
-  return animation_sequence_create(icon_animation_to_square, icon_animation_from_square, NULL);
-}
