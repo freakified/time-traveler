@@ -18,27 +18,17 @@ void world_clock_view_model_set_relative_info(WorldClockMainWindowViewModel *mod
   time_t now = time(NULL);
   struct tm *local_time = localtime(&now);
 
-  // Calculate city time
-  time_t city_time_seconds = now + (offset_hours * 3600);
-  struct tm *city_time = gmtime(&city_time_seconds);
+  // Calculate GMT time by subtracting local timezone offset
+  time_t gmt_seconds = now - local_time->tm_gmtoff;
 
-  // Determine the day difference
-  int day_diff = city_time->tm_mday - local_time->tm_mday;
+  // Calculate city time by adding offset to GMT
+  time_t city_time_seconds = gmt_seconds + (offset_hours * 3600);
 
-  // Handle month/year boundaries
-  if (city_time->tm_mon != local_time->tm_mon) {
-    if (city_time->tm_mon > local_time->tm_mon) {
-      day_diff = 1; // Next month, assume tomorrow
-    } else {
-      day_diff = -1; // Previous month, assume yesterday
-    }
-  } else if (city_time->tm_year != local_time->tm_year) {
-    if (city_time->tm_year > local_time->tm_year) {
-      day_diff = 1; // Next year, assume tomorrow
-    } else {
-      day_diff = -1; // Previous year, assume yesterday
-    }
-  }
+  // Calculate day difference using seconds since epoch
+  int local_day = (int)(now / 86400);
+  int city_day = (int)(city_time_seconds / 86400);
+  int day_diff = city_day - local_day;
+  APP_LOG(APP_LOG_LEVEL_DEBUG, "day_diff: %d", day_diff);
 
   char day_str[10];
   if (day_diff == 0) {
@@ -51,9 +41,7 @@ void world_clock_view_model_set_relative_info(WorldClockMainWindowViewModel *mod
     strcpy(day_str, "TODAY"); // Fallback
   }
 
-  if (offset_hours == 0) {
-    snprintf(model->relative_info.text, sizeof(model->relative_info.text), "%s, SAME TIME", day_str);
-  } else if (offset_hours > 0) {
+  if (offset_hours >= 0) {
     snprintf(model->relative_info.text, sizeof(model->relative_info.text), "%s, +%d HRS", day_str, offset_hours);
   } else {
     snprintf(model->relative_info.text, sizeof(model->relative_info.text), "%s, %d HRS", day_str, offset_hours);
@@ -65,22 +53,19 @@ WorldClockDataViewNumbers world_clock_data_point_view_model_numbers(WorldClockDa
   time_t now = time(NULL);
   struct tm *current_local = localtime(&now);
 
-  // Calculate city time by adding offset to current time components
-  int city_hour = current_local->tm_hour + data_point->offset_hours;
-  int city_min = current_local->tm_min;
+  // Calculate GMT time by subtracting local timezone offset
+  time_t gmt_seconds = now - current_local->tm_gmtoff;
 
-  // Normalize the hour (handle overflow/underflow)
-  while (city_hour >= 24) {
-    city_hour -= 24;
-  }
-  while (city_hour < 0) {
-    city_hour += 24;
-  }
+  // Calculate city time by adding offset to GMT
+  time_t city_seconds = gmt_seconds + (data_point->offset_hours * 3600);
+
+  // Use localtime to get the correct hour/minute for the city time
+  struct tm *city_time = localtime(&city_seconds);
 
   return (WorldClockDataViewNumbers){
-      .hour = city_hour,
+      .hour = city_time->tm_hour,
       .offset = data_point->offset_hours,
-      .minute = city_min,
+      .minute = city_time->tm_min,
   };
 }
 
@@ -127,6 +112,10 @@ void world_clock_view_model_deinit(WorldClockMainWindowViewModel *model) {
 }
 
 static WorldClockDataPoint s_data_points[] = {
+    {
+        .city = "SAN FRANCISCO",
+        .offset_hours = -8, // PST: UTC-8
+    },
     {
         .city = "NEW YORK",
         .offset_hours = -5, // EST: UTC-5
