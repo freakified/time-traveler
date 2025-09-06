@@ -24,11 +24,8 @@ void world_clock_view_model_set_relative_info(WorldClockMainWindowViewModel *mod
   // Calculate GMT offset from relative offset
   int16_t gmt_offset_hours = relative_offset_hours + local_offset_hours;
 
-  // Calculate GMT time by subtracting local timezone offset
-  time_t gmt_seconds = now - local_time->tm_gmtoff;
-
-  // Calculate city time by adding GMT offset to GMT
-  time_t city_time_seconds = gmt_seconds + (gmt_offset_hours * 3600);
+  // Calculate city's current time in UTC
+  time_t city_time_seconds = now + (gmt_offset_hours * 3600);
 
   // Calculate day difference using seconds since epoch
   int local_day = (int)(now / 86400);
