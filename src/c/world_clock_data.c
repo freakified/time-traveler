@@ -13,7 +13,7 @@ void world_clock_view_model_set_time(WorldClockMainWindowViewModel *model, int16
   snprintf(model->time.text, sizeof(model->time.text), "%02d:%02d", model->time.hour, model->time.minute);
 }
 
-void world_clock_view_model_set_relative_info(WorldClockMainWindowViewModel *model, int16_t relative_offset_hours) {
+void world_clock_view_model_set_relative_info(WorldClockMainWindowViewModel *model, int16_t relative_offset_hours, WorldClockDataPoint *data_point) {
   // Get current local time to determine if it's today, yesterday, or tomorrow
   time_t now = time(NULL);
   struct tm *local_time = localtime(&now);
@@ -23,6 +23,11 @@ void world_clock_view_model_set_relative_info(WorldClockMainWindowViewModel *mod
 
   // Calculate GMT offset from relative offset
   int16_t gmt_offset_hours = relative_offset_hours + local_offset_hours;
+
+  // Add DST adjustment
+  if (data_point->is_dst) {
+    gmt_offset_hours += 1;
+  }
 
   // Calculate city's current time in UTC
   time_t city_time_seconds = now + (gmt_offset_hours * 3600);
@@ -44,10 +49,15 @@ void world_clock_view_model_set_relative_info(WorldClockMainWindowViewModel *mod
     strcpy(day_str, "TODAY"); // Fallback
   }
 
+  char dst_indicator[5] = "";
+  if (data_point->is_dst) {
+    strcpy(dst_indicator, " DST");
+  }
+
   if (relative_offset_hours >= 0) {
-    snprintf(model->relative_info.text, sizeof(model->relative_info.text), "%s, +%d HRS", day_str, relative_offset_hours);
+    snprintf(model->relative_info.text, sizeof(model->relative_info.text), "%s, +%d HRS%s", day_str, relative_offset_hours, dst_indicator);
   } else {
-    snprintf(model->relative_info.text, sizeof(model->relative_info.text), "%s, %d HRS", day_str, relative_offset_hours);
+    snprintf(model->relative_info.text, sizeof(model->relative_info.text), "%s, %d HRS%s", day_str, relative_offset_hours, dst_indicator);
   }
 
   model->current_offset = relative_offset_hours;
@@ -70,8 +80,11 @@ WorldClockDataViewNumbers world_clock_data_point_view_model_numbers(WorldClockDa
   // Calculate local timezone offset in hours
   int16_t local_offset_hours = current_local->tm_gmtoff / 3600;
 
+  // Calculate GMT offset including DST
+  int16_t gmt_offset_hours = data_point->offset_hours + (data_point->is_dst ? 1 : 0);
+
   // Calculate offset relative to user's local time
-  int16_t relative_offset = data_point->offset_hours - local_offset_hours;
+  int16_t relative_offset = gmt_offset_hours - local_offset_hours;
 
   return (WorldClockDataViewNumbers){
       .hour = city_time->tm_hour,
@@ -91,9 +104,9 @@ void world_clock_view_model_fill_strings_and_pagination(WorldClockMainWindowView
   world_clock_main_window_view_model_announce_changed(view_model);
 }
 
-void world_clock_view_model_fill_numbers(WorldClockMainWindowViewModel *model, WorldClockDataViewNumbers numbers) {
+void world_clock_view_model_fill_numbers(WorldClockMainWindowViewModel *model, WorldClockDataViewNumbers numbers, WorldClockDataPoint *data_point) {
   world_clock_view_model_set_time(model, numbers.hour, numbers.minute);
-  world_clock_view_model_set_relative_info(model, numbers.offset);
+  world_clock_view_model_set_relative_info(model, numbers.offset, data_point);
 }
 
 void world_clock_view_model_fill_colors(WorldClockMainWindowViewModel *model, GColor color) {
@@ -113,7 +126,7 @@ void world_clock_view_model_fill_all(WorldClockMainWindowViewModel *model, World
   model->announce_changed = annouce_changed;
   world_clock_view_model_fill_strings_and_pagination(model, data_point);
   world_clock_view_model_fill_colors(model, world_clock_data_point_color(data_point));
-  world_clock_view_model_fill_numbers(model, world_clock_data_point_view_model_numbers(data_point));
+  world_clock_view_model_fill_numbers(model, world_clock_data_point_view_model_numbers(data_point), data_point);
 
   world_clock_main_window_view_model_announce_changed(model);
 }
@@ -122,26 +135,31 @@ void world_clock_view_model_deinit(WorldClockMainWindowViewModel *model) {
   // No cleanup needed for world clock
 }
 
-static WorldClockDataPoint s_data_points[] = {
+WorldClockDataPoint s_data_points[] = {
     {
         .city = "SAN FRANCISCO",
         .offset_hours = -8, // PST: UTC-8
+        .is_dst = false, // Currently PDT
     },
     {
         .city = "NEW YORK",
         .offset_hours = -5, // EST: UTC-5
+        .is_dst = false, // Currently EDT
     },
     {
         .city = "LONDON",
         .offset_hours = 0, // GMT: UTC+0
+        .is_dst = false, // Currently BST
     },
     {
         .city = "TOKYO",
         .offset_hours = 9, // JST: UTC+9
+        .is_dst = false, // No DST
     },
     {
         .city = "SYDNEY",
         .offset_hours = 10, // AEST: UTC+10
+        .is_dst = false, // Currently AEDT
     },
 };
 

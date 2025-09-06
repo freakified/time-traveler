@@ -13,7 +13,9 @@ static WorldClockDataViewNumbers get_animated_numbers(WorldClockMainWindowViewMo
 }
 
 static void set_animated_numbers(WorldClockMainWindowViewModel *model, WorldClockDataViewNumbers numbers) {
-  world_clock_view_model_fill_numbers(model, numbers);
+  // Get the WorldClockData from the model (view_model is the second field, offset 4 bytes)
+  WorldClockData *data = (WorldClockData *)((char *)model - 4);
+  world_clock_view_model_fill_numbers(model, numbers, data->data_point);
   world_clock_main_window_view_model_announce_changed(model);
 }
 

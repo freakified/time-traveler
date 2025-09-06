@@ -4,6 +4,7 @@
 #include "world_clock_data.h"
 
 #define STATUS_BAR_HEIGHT 16
+#define DST_PERSIST_KEY 1
 
 static Window *s_main_window;
 
@@ -72,23 +73,41 @@ static void set_data_point(WorldClockData *data, WorldClockDataPoint *dp) {
   world_clock_view_model_fill_all(&data->view_model, dp);
 }
 
+static void load_dst_settings() {
+  bool dst_settings[5] = {true, true, true, false, true}; // defaults
+  if (persist_exists(DST_PERSIST_KEY)) {
+    persist_read_data(DST_PERSIST_KEY, dst_settings, sizeof(dst_settings));
+  }
+  for (int i = 0; i < 5; i++) {
+    s_data_points[i].is_dst = dst_settings[i];
+  }
+}
+
+static void save_dst_settings() {
+  bool dst_settings[5];
+  for (int i = 0; i < 5; i++) {
+    dst_settings[i] = s_data_points[i].is_dst;
+  }
+  persist_write_data(DST_PERSIST_KEY, dst_settings, sizeof(dst_settings));
+}
+
 static void update_status_bar_time() {
-   WorldClockData *data = window_get_user_data(s_main_window);
+    WorldClockData *data = window_get_user_data(s_main_window);
 
-   // Get current local time
-   time_t now = time(NULL);
-   struct tm *local_time = localtime(&now);
+    // Get current local time
+    time_t now = time(NULL);
+    struct tm *local_time = localtime(&now);
 
-   // Format time for status bar (12-hour format)
-   static char time_str[] = "00:00";
-   strftime(time_str, sizeof(time_str), "%I:%M %p", local_time);
+    // Format time for status bar (12-hour format)
+    static char time_str[] = "00:00";
+    strftime(time_str, sizeof(time_str), "%I:%M %p", local_time);
 
-   // Remove leading zero from hour
-   if (time_str[0] == '0') {
-     memmove(time_str, time_str + 1, strlen(time_str));
-   }
+    // Remove leading zero from hour
+    if (time_str[0] == '0') {
+      memmove(time_str, time_str + 1, strlen(time_str));
+    }
 
-   text_layer_set_text(data->fake_statusbar, time_str);
+    text_layer_set_text(data->fake_statusbar, time_str);
 }
 
 static void prv_handle_minute_tick(struct tm *tick_time, TimeUnits units_changed) {
@@ -98,8 +117,8 @@ static void prv_handle_minute_tick(struct tm *tick_time, TimeUnits units_changed
    update_status_bar_time();
 
    // Update world clock times
-   WorldClockDataViewNumbers numbers = world_clock_data_point_view_model_numbers(data->data_point);
-   world_clock_view_model_fill_numbers(&data->view_model, numbers);
+    WorldClockDataViewNumbers numbers = world_clock_data_point_view_model_numbers(data->data_point);
+    world_clock_view_model_fill_numbers(&data->view_model, numbers, data->data_point);
 }
 
 static void view_model_changed(struct WorldClockMainWindowViewModel *arg) {
@@ -112,8 +131,14 @@ static void view_model_changed(struct WorldClockMainWindowViewModel *arg) {
   text_layer_set_text(data->relative_info_layer, model->relative_info.text);
   text_layer_set_text(data->pagination_layer, model->pagination.text);
 
+  // Force redraw by temporarily clearing and resetting the text
+  text_layer_set_text(data->relative_info_layer, "");
+  text_layer_set_text(data->relative_info_layer, model->relative_info.text);
+
   // make sure to redraw (if no string pointer changed none of the layers would be dirty)
   layer_mark_dirty(window_get_root_layer(s_main_window));
+  // Also mark the relative_info layer dirty to ensure update
+  layer_mark_dirty(text_layer_get_layer(data->relative_info_layer));
 }
 
 static void main_window_load(Window *window) {
@@ -160,7 +185,7 @@ static void after_scroll_swap_text(Animation *animation, bool finished, void *co
   WorldClockDataPoint *data_point = context;
 
   world_clock_view_model_fill_strings_and_pagination(&data->view_model, data_point);
-  world_clock_view_model_fill_numbers(&data->view_model, world_clock_data_point_view_model_numbers(data_point));
+  world_clock_view_model_fill_numbers(&data->view_model, world_clock_data_point_view_model_numbers(data_point), data_point);
 }
 
 static Animation *create_anim_scroll_out(Layer *layer, uint32_t duration, int16_t dy) {
@@ -264,12 +289,26 @@ static void down_click_handler(ClickRecognizerRef recognizer, void *context) {
   ask_for_scroll(data, ScrollDirectionDown);
 }
 
+static void select_long_click_handler(ClickRecognizerRef recognizer, void *context) {
+  WorldClockData *data = context;
+  // Toggle DST for current city
+  data->data_point->is_dst = !data->data_point->is_dst;
+  save_dst_settings();
+  // Refresh display
+  WorldClockDataViewNumbers numbers = world_clock_data_point_view_model_numbers(data->data_point);
+  world_clock_view_model_fill_numbers(&data->view_model, numbers, data->data_point);
+  text_layer_set_text(data->relative_info_layer, data->view_model.relative_info.text);
+}
+
 static void click_config_provider(void *context) {
   window_single_click_subscribe(BUTTON_ID_UP, up_click_handler);
   window_single_click_subscribe(BUTTON_ID_DOWN, down_click_handler);
+  window_long_click_subscribe(BUTTON_ID_SELECT, 500, select_long_click_handler, NULL);
 }
 
 static void init() {
+  load_dst_settings();
+
   WorldClockData *data = malloc(sizeof(WorldClockData));
   memset(data, 0, sizeof(WorldClockData));
 
@@ -283,9 +322,9 @@ static void init() {
     .load = main_window_load,
     .unload = main_window_unload,
   });
-   window_stack_push(s_main_window, true);
-   update_status_bar_time();
-   tick_timer_service_subscribe(MINUTE_UNIT, prv_handle_minute_tick);
+    window_stack_push(s_main_window, true);
+    update_status_bar_time();
+    tick_timer_service_subscribe(MINUTE_UNIT, prv_handle_minute_tick);
 }
 
 static void deinit() {

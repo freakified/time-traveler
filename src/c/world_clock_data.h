@@ -25,7 +25,7 @@ typedef struct {
     char text[8];
   } pagination;
   struct {
-    char text[20]; // "TODAY, +3 HRS" or "YESTERDAY, -5 HRS"
+    char text[25]; // "TODAY, +3 HRS DST" or "YESTERDAY, -5 HRS DST"
   } relative_info;
   int16_t current_offset; // current offset for animation
 } WorldClockMainWindowViewModel;
@@ -36,6 +36,7 @@ void world_clock_main_window_view_model_announce_changed(WorldClockMainWindowVie
 typedef struct {
   char *city;
   int16_t offset_hours; // offset from local time in hours
+  bool is_dst; // true if currently in DST
 } WorldClockDataPoint;
 
 typedef struct {
@@ -46,7 +47,7 @@ typedef struct {
 
 
 void world_clock_view_model_set_time(WorldClockMainWindowViewModel *model, int16_t hour, int16_t minute);
-void world_clock_view_model_set_relative_info(WorldClockMainWindowViewModel *model, int16_t offset_hours);
+void world_clock_view_model_set_relative_info(WorldClockMainWindowViewModel *model, int16_t offset_hours, WorldClockDataPoint *data_point);
 
 WorldClockDataViewNumbers world_clock_data_point_view_model_numbers(WorldClockDataPoint *data_point);
 
@@ -54,7 +55,7 @@ GDrawCommandImage *world_clock_data_point_create_icon(WorldClockDataPoint *data_
 
 void world_clock_view_model_fill_strings_and_pagination(WorldClockMainWindowViewModel *view_model, WorldClockDataPoint *data_point);
 
-void world_clock_view_model_fill_numbers(WorldClockMainWindowViewModel *model, WorldClockDataViewNumbers numbers);
+void world_clock_view_model_fill_numbers(WorldClockMainWindowViewModel *model, WorldClockDataViewNumbers numbers, WorldClockDataPoint *data_point);
 
 void world_clock_view_model_fill_all(WorldClockMainWindowViewModel *model, WorldClockDataPoint *data_point);
 
@@ -68,3 +69,5 @@ int world_clock_num_data_points(void);
 
 WorldClockDataPoint *world_clock_data_point_at(int idx);
 WorldClockDataPoint *world_clock_data_point_delta(WorldClockDataPoint *dp, int delta);
+
+extern WorldClockDataPoint s_data_points[];
