@@ -27,6 +27,7 @@ typedef struct {
   struct {
     char text[20]; // "TODAY, +3 HRS" or "YESTERDAY, -5 HRS"
   } relative_info;
+  int16_t current_offset; // current offset for animation
 } WorldClockMainWindowViewModel;
 
 //! calls model's .announce_changed or does nothing if NULL

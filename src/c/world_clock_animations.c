@@ -8,7 +8,7 @@ static WorldClockDataViewNumbers get_animated_numbers(WorldClockMainWindowViewMo
   return (WorldClockDataViewNumbers) {
     .hour = model->time.hour,
     .minute = model->time.minute,
-    .offset = 0, // Not used for time
+    .offset = model->current_offset,
   };
 }
 
