@@ -49,21 +49,41 @@ static GRect init_text_layer(Layer *parent_layer, TextLayer **text_layer, int16_
   // why "-1" (and then "+2")? because for this font we need to compensate for weird white-spacing
   const int16_t font_compensator = strcmp(font_key, FONT_KEY_LECO_38_BOLD_NUMBERS) == 0 ? 3 : 1;
 
-  const GRect frame = GRect(MARGIN - font_compensator, y, layer_get_bounds(parent_layer).size.w - 2 * MARGIN + 2 * font_compensator - additional_right_margin, h);
+  // Use smaller margins for round watches
+  const int16_t current_margin = PBL_IF_ROUND_ELSE(4, MARGIN);
+
+  const GRect frame = GRect(current_margin - font_compensator, y, layer_get_bounds(parent_layer).size.w - 2 * current_margin + 2 * font_compensator - additional_right_margin, h);
 
   *text_layer = text_layer_create(frame);
   text_layer_set_background_color(*text_layer, GColorClear);
   text_layer_set_text_color(*text_layer, PBL_IF_COLOR_ELSE(GColorWhite, GColorBlack));
   text_layer_set_font(*text_layer, fonts_get_system_font(font_key));
+
+  // Center align text horizontally on round watches
+  if (PBL_IF_ROUND_ELSE(true, false)) {
+    text_layer_set_text_alignment(*text_layer, GTextAlignmentCenter);
+  }
+
   layer_add_child(parent_layer, text_layer_get_layer(*text_layer));
   return frame;
 }
 
 void init_statusbar_text_layer(Layer *parent, TextLayer **layer) {
-  init_text_layer(parent, layer, 0, STATUS_BAR_HEIGHT, 0, FONT_KEY_GOTHIC_14);
+  // For status bar, always use full width regardless of screen shape
+  const int16_t status_margin = PBL_IF_ROUND_ELSE(4, MARGIN);
+  const GRect frame = GRect(status_margin, 0, layer_get_bounds(parent).size.w - 2 * status_margin, STATUS_BAR_HEIGHT);
+
+  *layer = text_layer_create(frame);
+  text_layer_set_background_color(*layer, GColorClear);
+  text_layer_set_text_color(*layer, PBL_IF_COLOR_ELSE(GColorWhite, GColorBlack));
+  text_layer_set_font(*layer, fonts_get_system_font(FONT_KEY_GOTHIC_14));
+  layer_add_child(parent, text_layer_get_layer(*layer));
+
   GRect sb_bounds = layer_get_bounds(text_layer_get_layer(*layer));
   sb_bounds.origin.y -= 1;
   layer_set_bounds(text_layer_get_layer(*layer), sb_bounds);
+
+  // Status bar is always center-aligned
   text_layer_set_text_alignment(*layer, GTextAlignmentCenter);
 }
 
@@ -149,14 +169,34 @@ static void main_window_load(Window *window) {
   const GRect bounds = layer_get_bounds(window_layer);
   layer_set_update_proc(window_layer, bg_update_proc);
 
-  data->horizontal_ruler_layer = layer_create(GRect(MARGIN, 40, bounds.size.w - 2 * MARGIN, 20));
+  // Calculate layout based on screen shape
+  const int16_t screen_height = bounds.size.h;
+  const int16_t screen_width = bounds.size.w;
+
+  // For round watches, center content vertically and use smaller margins
+  const int16_t content_height = 110; // Total height of our content (from city to relative_info)
+  const int16_t base_margin = PBL_IF_ROUND_ELSE(4, MARGIN); // Smaller margins for round
+
+  // Calculate vertical centering for round watches
+  const int16_t vertical_offset = PBL_IF_ROUND_ELSE(
+    (screen_height - content_height) / 2, // Center vertically on round
+    58 // Bottom alignment offset for rectangular
+  );
+
+  // Position elements with appropriate offsets
+  const int16_t city_y = PBL_IF_ROUND_ELSE(23 + vertical_offset, 81);
+  const int16_t ruler_y = PBL_IF_ROUND_ELSE(40 + vertical_offset, 98);
+  const int16_t time_y = PBL_IF_ROUND_ELSE(49 + vertical_offset, 107);
+  const int16_t relative_info_y = PBL_IF_ROUND_ELSE(91 + vertical_offset, 149);
+
+  data->horizontal_ruler_layer = layer_create(GRect(base_margin, ruler_y, screen_width - 2 * base_margin, 20));
   layer_set_update_proc(data->horizontal_ruler_layer, horizontal_ruler_update_proc);
   layer_add_child(window_layer, data->horizontal_ruler_layer);
 
-  init_text_layer(window_layer, &data->city_layer, 23, 30, 0, FONT_KEY_GOTHIC_18_BOLD);
-  const int16_t time_top = 49;
+  init_text_layer(window_layer, &data->city_layer, city_y, 30, 0, FONT_KEY_GOTHIC_18_BOLD);
+  const int16_t time_top = time_y;
   init_text_layer(window_layer, &data->time_layer, time_top, 40, 0, FONT_KEY_LECO_38_BOLD_NUMBERS);
-  init_text_layer(window_layer, &data->relative_info_layer, 91, 19, 0, FONT_KEY_GOTHIC_14);
+  init_text_layer(window_layer, &data->relative_info_layer, relative_info_y, 19, 0, FONT_KEY_GOTHIC_14);
 
    init_statusbar_text_layer(window_layer, &data->fake_statusbar);
 
