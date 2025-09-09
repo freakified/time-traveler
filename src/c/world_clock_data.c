@@ -71,17 +71,17 @@ WorldClockDataViewNumbers world_clock_data_point_view_model_numbers(WorldClockDa
   // Calculate GMT time by subtracting local timezone offset
   time_t gmt_seconds = now - current_local->tm_gmtoff;
 
-  // Calculate city time by adding offset to GMT
-  time_t city_seconds = gmt_seconds + (data_point->offset_hours * 3600);
-
-  // Use localtime to get the correct hour/minute for the city time
-  struct tm *city_time = localtime(&city_seconds);
-
   // Calculate local timezone offset in hours
   int16_t local_offset_hours = current_local->tm_gmtoff / 3600;
 
   // Calculate GMT offset including DST
   int16_t gmt_offset_hours = data_point->offset_hours + (data_point->is_dst ? 1 : 0);
+
+  // Calculate city time by adding offset to GMT (including DST)
+  time_t city_seconds = gmt_seconds + (gmt_offset_hours * 3600);
+
+  // Use localtime to get the correct hour/minute for the city time
+  struct tm *city_time = localtime(&city_seconds);
 
   // Calculate offset relative to user's local time
   int16_t relative_offset = gmt_offset_hours - local_offset_hours;
@@ -117,7 +117,7 @@ void world_clock_view_model_fill_colors(WorldClockMainWindowViewModel *model, GC
 
 GColor world_clock_data_point_color(WorldClockDataPoint *data_point) {
   // Use offset to determine color - larger offsets get different colors
-  return data_point->offset_hours > 10 ? GColorOrange : GColorPictonBlue;
+  return data_point->offset_hours < -10 ? GColorOrange : GColorCobaltBlue;
 }
 
 void world_clock_view_model_fill_all(WorldClockMainWindowViewModel *model, WorldClockDataPoint *data_point) {
