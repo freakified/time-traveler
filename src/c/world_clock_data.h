@@ -17,7 +17,8 @@ typedef struct {
   struct {
     int16_t hour;
     int16_t minute;
-    char text[12]; // "HH:MM" format
+    char text[12]; // "HH:MM" or "H:MM" format (time numbers only)
+    char ampm[4]; // "AM", "PM", or empty for 24h format
   } time;
   struct {
     int16_t idx;

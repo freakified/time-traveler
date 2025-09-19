@@ -12,5 +12,6 @@ typedef struct {
   TextLayer *city_layer;
   Layer *horizontal_ruler_layer;
   TextLayer *time_layer;
+  TextLayer *ampm_layer;
   TextLayer *relative_info_layer;
 } WorldClockData;

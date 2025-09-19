@@ -118,13 +118,18 @@ static void update_status_bar_time() {
     time_t now = time(NULL);
     struct tm *local_time = localtime(&now);
 
-    // Format time for status bar (12-hour format)
+    // Format time for status bar based on user preference
     static char time_str[] = "00:00";
-    strftime(time_str, sizeof(time_str), "%I:%M %p", local_time);
-
-    // Remove leading zero from hour
-    if (time_str[0] == '0') {
-      memmove(time_str, time_str + 1, strlen(time_str));
+    if (clock_is_24h_style()) {
+      // 24-hour format
+      strftime(time_str, sizeof(time_str), "%H:%M", local_time);
+    } else {
+      // 12-hour format with AM/PM
+      strftime(time_str, sizeof(time_str), "%I:%M %p", local_time);
+      // Remove leading zero from hour
+      if (time_str[0] == '0') {
+        memmove(time_str, time_str + 1, strlen(time_str));
+      }
     }
 
     text_layer_set_text(data->fake_statusbar, time_str);
@@ -141,6 +146,29 @@ static void prv_handle_minute_tick(struct tm *tick_time, TimeUnits units_changed
     world_clock_view_model_fill_numbers(&data->view_model, numbers, data->data_point);
 }
 
+static void update_ampm_position(WorldClockData *data) {
+  if(clock_is_24h_style()) {
+    layer_set_hidden(text_layer_get_layer(data->ampm_layer), true);
+  } else {
+    layer_set_hidden(text_layer_get_layer(data->ampm_layer), false);
+
+  // Get the current bounds of the time layer
+  GRect time_bounds = layer_get_frame(text_layer_get_layer(data->time_layer));
+
+  // Get the content size of the time text to determine actual width
+  GSize time_content_size = text_layer_get_content_size(data->time_layer);
+  APP_LOG(APP_LOG_LEVEL_DEBUG, "content size width: %d", time_content_size.w);
+
+    // Position AM/PM layer right after the time text
+    int16_t ampm_x = time_bounds.origin.x + time_content_size.w + 0;
+    int16_t ampm_y = time_bounds.origin.y + 12; // align with baseline
+
+    // Update AM/PM layer position
+    GRect ampm_frame = layer_get_frame(text_layer_get_layer(data->ampm_layer));
+    layer_set_frame(text_layer_get_layer(data->ampm_layer), GRect(ampm_frame.size.w, ampm_frame.size.h, ampm_x, ampm_y));
+  }
+}
+
 static void view_model_changed(struct WorldClockMainWindowViewModel *arg) {
   WorldClockMainWindowViewModel *model = (WorldClockMainWindowViewModel *)arg;
 
@@ -148,8 +176,12 @@ static void view_model_changed(struct WorldClockMainWindowViewModel *arg) {
 
   text_layer_set_text(data->city_layer, model->city);
   text_layer_set_text(data->time_layer, model->time.text);
+  text_layer_set_text(data->ampm_layer, model->time.ampm);
   text_layer_set_text(data->relative_info_layer, model->relative_info.text);
   text_layer_set_text(data->pagination_layer, model->pagination.text);
+
+  // Update AM/PM position based on time text width
+  update_ampm_position(data);
 
   // Force redraw by temporarily clearing and resetting the text
   text_layer_set_text(data->relative_info_layer, "");
@@ -196,15 +228,29 @@ static void main_window_load(Window *window) {
   init_text_layer(window_layer, &data->city_layer, city_y, 30, 0, FONT_KEY_GOTHIC_18_BOLD);
   const int16_t time_top = time_y;
   init_text_layer(window_layer, &data->time_layer, time_top, 40, 0, FONT_KEY_LECO_38_BOLD_NUMBERS);
+
+  // Create AM/PM layer with smaller font
+  const int16_t ampm_y = time_top + 8; // Position below the time numbers
+  GRect ampm_frame = GRect(base_margin, ampm_y, 40, 20); // Initial position, will be updated dynamically
+  data->ampm_layer = text_layer_create(ampm_frame);
+  text_layer_set_background_color(data->ampm_layer, GColorClear);
+  text_layer_set_text_color(data->ampm_layer, PBL_IF_COLOR_ELSE(GColorWhite, GColorBlack));
+  text_layer_set_font(data->ampm_layer, fonts_get_system_font(FONT_KEY_LECO_26_BOLD_NUMBERS_AM_PM));
+  text_layer_set_text_alignment(data->ampm_layer, GTextAlignmentLeft);
+  layer_add_child(window_layer, text_layer_get_layer(data->ampm_layer));
+
   init_text_layer(window_layer, &data->relative_info_layer, relative_info_y, 19, 0, FONT_KEY_GOTHIC_14);
 
-   init_statusbar_text_layer(window_layer, &data->fake_statusbar);
+  init_statusbar_text_layer(window_layer, &data->fake_statusbar);
 
   init_statusbar_text_layer(window_layer, &data->pagination_layer);
   text_layer_set_text_alignment(data->pagination_layer, GTextAlignmentRight);
 
   // propagate all view model content to the UI
   world_clock_main_window_view_model_announce_changed(&data->view_model);
+
+  // Position AM/PM layer correctly on startup
+  update_ampm_position(data);
 }
 
 static void main_window_unload(Window *window) {
@@ -215,6 +261,7 @@ static void main_window_unload(Window *window) {
   layer_destroy(data->horizontal_ruler_layer);
   text_layer_destroy(data->city_layer);
   text_layer_destroy(data->time_layer);
+  text_layer_destroy(data->ampm_layer);
   text_layer_destroy(data->relative_info_layer);
   text_layer_destroy(data->fake_statusbar);
   text_layer_destroy(data->pagination_layer);
@@ -259,8 +306,9 @@ static Animation *create_outbound_anim(WorldClockData *data, ScrollDirection dir
 
   Animation *out_city = create_anim_scroll_out(text_layer_get_layer(data->city_layer), SCROLL_DURATION, to_dy);
   Animation *out_ruler = create_anim_scroll_out(data->horizontal_ruler_layer, SCROLL_DURATION, to_dy);
+  Animation *out_ampm = create_anim_scroll_out(text_layer_get_layer(data->ampm_layer), SCROLL_DURATION, to_dy);
 
-  return animation_spawn_create(out_city, out_ruler, NULL);
+  return animation_spawn_create(out_city, out_ruler, out_ampm, NULL);
 }
 
 static Animation *create_inbound_anim(WorldClockData *data, ScrollDirection direction) {
@@ -270,8 +318,9 @@ static Animation *create_inbound_anim(WorldClockData *data, ScrollDirection dire
   Animation *in_time = create_anim_scroll_in(text_layer_get_layer(data->time_layer), SCROLL_DURATION, from_dy);
   Animation *in_relative_info = create_anim_scroll_in(text_layer_get_layer(data->relative_info_layer), SCROLL_DURATION, from_dy);
   Animation *in_ruler = create_anim_scroll_in(data->horizontal_ruler_layer, SCROLL_DURATION, from_dy);
+  Animation *in_ampm = create_anim_scroll_in(text_layer_get_layer(data->ampm_layer), SCROLL_DURATION, from_dy);
 
-  return animation_spawn_create(in_city, in_time, in_relative_info, in_ruler, NULL);
+  return animation_spawn_create(in_city, in_time, in_relative_info, in_ruler, in_ampm, NULL);
 }
 
 static Animation *animation_for_scroll(WorldClockData *data, ScrollDirection direction, WorldClockDataPoint *next_data_point) {

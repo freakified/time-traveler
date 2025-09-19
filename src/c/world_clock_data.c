@@ -10,7 +10,19 @@ void world_clock_main_window_view_model_announce_changed(WorldClockMainWindowVie
 void world_clock_view_model_set_time(WorldClockMainWindowViewModel *model, int16_t hour, int16_t minute) {
   model->time.hour = hour;
   model->time.minute = minute;
-  snprintf(model->time.text, sizeof(model->time.text), "%02d:%02d", model->time.hour, model->time.minute);
+
+  if (clock_is_24h_style()) {
+    // 24-hour format
+    snprintf(model->time.text, sizeof(model->time.text), "%02d:%02d", model->time.hour, model->time.minute);
+    model->time.ampm[0] = '\0'; // Empty AM/PM for 24h format
+  } else {
+    // 12-hour format with separate AM/PM
+    int display_hour = hour % 12;
+    if (display_hour == 0) display_hour = 12; // 12 AM/PM instead of 0
+    const char *ampm = (hour < 12) ? "AM" : "PM";
+    snprintf(model->time.text, sizeof(model->time.text), "%d:%02d", display_hour, model->time.minute);
+    strcpy(model->time.ampm, ampm);
+  }
 }
 
 void world_clock_view_model_set_relative_info(WorldClockMainWindowViewModel *model, int16_t relative_offset_hours, WorldClockDataPoint *data_point) {
@@ -117,7 +129,7 @@ void world_clock_view_model_fill_colors(WorldClockMainWindowViewModel *model, GC
 
 GColor world_clock_data_point_color(WorldClockDataPoint *data_point) {
   // Use offset to determine color - larger offsets get different colors
-  return data_point->offset_hours < -10 ? GColorOrange : GColorPictonBlue;
+  return data_point->offset_hours < -10 ? GColorOrange : GColorVividCerulean;
 }
 
 void world_clock_view_model_fill_all(WorldClockMainWindowViewModel *model, WorldClockDataPoint *data_point) {
