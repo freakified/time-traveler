@@ -71,4 +71,12 @@ int world_clock_num_data_points(void);
 WorldClockDataPoint *world_clock_data_point_at(int idx);
 WorldClockDataPoint *world_clock_data_point_delta(WorldClockDataPoint *dp, int delta);
 
+// City coordinates for map display
+typedef struct {
+    float longitude;
+    float latitude;
+} CityCoordinates;
+
+CityCoordinates *world_clock_get_city_coordinates(int city_index);
+
 extern WorldClockDataPoint s_data_points[];

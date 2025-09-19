@@ -3,6 +3,10 @@
 #include "world_clock_animations.h"
 #include "world_clock_data.h"
 
+// Forward declarations for functions not in headers yet
+int world_clock_index_of_data_point(WorldClockDataPoint *dp);
+CityCoordinates *world_clock_get_city_coordinates(int city_index);
+
 #define STATUS_BAR_HEIGHT 16
 #define DST_PERSIST_KEY 1
 
@@ -30,6 +34,136 @@ static void bg_update_proc(Layer *layer, GContext *ctx) {
   GRect rect_bottom = bounds;
   rect_bottom.origin.y += y;
   graphics_fill_rect(ctx, rect_bottom, 0, GCornerNone);
+}
+
+// Convert longitude/latitude to screen coordinates for the map
+static GPoint lon_lat_to_screen(float longitude, float latitude, const GRect map_bounds) {
+  // World map is typically centered at 0° longitude
+  // Longitude: -180 to 180 maps to 0 to map_width
+  // Latitude: 90 to -90 maps to 0 to map_height
+  int16_t x = (int16_t)((longitude + 180.0) / 360.0 * map_bounds.size.w);
+  int16_t y = (int16_t)((90.0 - latitude) / 180.0 * map_bounds.size.h);
+
+  // Clamp to bounds
+  if (x < 0) x = 0;
+  if (x >= map_bounds.size.w) x = map_bounds.size.w - 1;
+  if (y < 0) y = 0;
+  if (y >= map_bounds.size.h) y = map_bounds.size.h - 1;
+
+  return GPoint(x, y);
+}
+
+// Interpolate between two points based on animation progress
+static GPoint interpolate_points(GPoint start, GPoint end, int32_t progress, int32_t max_progress) {
+  if (max_progress == 0) return end;
+
+  int32_t dx = end.x - start.x;
+  int32_t dy = end.y - start.y;
+
+  int16_t x = start.x + (int16_t)((dx * progress) / max_progress);
+  int16_t y = start.y + (int16_t)((dy * progress) / max_progress);
+
+  return GPoint(x, y);
+}
+
+// Animation update handler for dot movement
+static void dot_animation_update(Animation *animation, const AnimationProgress progress) {
+  WorldClockData *data = window_get_user_data(s_main_window);
+  data->dot_animation_progress = progress;
+
+  // Mark map layer dirty to trigger redraw
+  layer_mark_dirty(data->map_layer);
+}
+
+// Animation stopped handler
+static void dot_animation_stopped(Animation *animation, bool finished, void *context) {
+  WorldClockData *data = window_get_user_data(s_main_window);
+  data->dot_animation_active = false;
+  data->dot_animation_progress = ANIMATION_NORMALIZED_MAX;
+
+  // Update current position to target position
+  data->current_dot_position = data->target_dot_position;
+
+  // Mark map layer dirty for final update
+  layer_mark_dirty(data->map_layer);
+}
+
+// Start dot animation to new city position
+static void start_dot_animation(WorldClockData *data, int new_city_index) {
+  const GRect bounds = layer_get_bounds(data->map_layer);
+
+  // Get target position
+  CityCoordinates *coords = world_clock_get_city_coordinates(new_city_index);
+  if (!coords) return;
+
+  GPoint target_pos = lon_lat_to_screen(coords->longitude, coords->latitude, bounds);
+
+  // Set animation state
+  data->target_dot_position = target_pos;
+  data->dot_animation_active = true;
+  data->dot_animation_progress = 0;
+
+  // Create and start animation
+  static const AnimationImplementation dot_anim_impl = {
+    .update = dot_animation_update
+  };
+
+  Animation *dot_animation = animation_create();
+  animation_set_duration(dot_animation, 300); // 300ms animation (2x faster)
+  animation_set_curve(dot_animation, AnimationCurveEaseInOut);
+  animation_set_implementation(dot_animation, &dot_anim_impl);
+  animation_set_handlers(dot_animation, (AnimationHandlers) {
+    .stopped = dot_animation_stopped
+  }, NULL);
+
+  animation_schedule(dot_animation);
+}
+
+static void map_update_proc(Layer *layer, GContext *ctx) {
+  WorldClockData *data = window_get_user_data(s_main_window);
+  const GRect bounds = layer_get_bounds(layer);
+
+  // Draw the world map
+  if (data->world_map_bitmap) {
+    graphics_draw_bitmap_in_rect(ctx, data->world_map_bitmap, bounds);
+  }
+
+  // Calculate dot position (animated or static)
+  GPoint dot_position;
+  if (data->dot_animation_active) {
+    // Use interpolated position during animation
+    dot_position = interpolate_points(data->current_dot_position, data->target_dot_position,
+                                     data->dot_animation_progress, ANIMATION_NORMALIZED_MAX);
+  } else {
+    // Use current city's position when not animating
+    int current_city_index = world_clock_index_of_data_point(data->data_point);
+    CityCoordinates *coords = world_clock_get_city_coordinates(current_city_index);
+    if (coords) {
+      dot_position = lon_lat_to_screen(coords->longitude, coords->latitude, bounds);
+      // Update current position for future animations
+      data->current_dot_position = dot_position;
+    } else {
+      // Fallback position
+      dot_position = GPoint(bounds.size.w / 2, bounds.size.h / 2);
+    }
+  }
+
+  // Draw crosshair lines (subtle white lines)
+  graphics_context_set_stroke_color(ctx, GColorWhite);
+
+  // Horizontal line across the entire width
+  graphics_draw_line(ctx, GPoint(0, dot_position.y), GPoint(bounds.size.w, dot_position.y));
+
+  // Vertical line across the entire height
+  graphics_draw_line(ctx, GPoint(dot_position.x, 0), GPoint(dot_position.x, bounds.size.h));
+
+  // Draw single animated dot
+  graphics_context_set_fill_color(ctx, GColorRed);
+  graphics_fill_circle(ctx, dot_position, 4);
+
+  // Draw border for better visibility
+  graphics_context_set_stroke_color(ctx, GColorWhite);
+  graphics_draw_circle(ctx, dot_position, 4);
 }
 
 static void horizontal_ruler_update_proc(Layer *layer, GContext *ctx) {
@@ -202,24 +336,34 @@ static void main_window_load(Window *window) {
   layer_set_update_proc(window_layer, bg_update_proc);
 
   // Calculate layout based on screen shape
-  const int16_t screen_height = bounds.size.h;
   const int16_t screen_width = bounds.size.w;
 
+  // Map takes top portion of screen
+  const int16_t map_height = 72;
+
   // For round watches, center content vertically and use smaller margins
-  const int16_t content_height = 110; // Total height of our content (from city to relative_info)
   const int16_t base_margin = PBL_IF_ROUND_ELSE(4, MARGIN); // Smaller margins for round
 
   // Calculate vertical centering for round watches
   const int16_t vertical_offset = PBL_IF_ROUND_ELSE(
-    (screen_height - content_height) / 2, // Center vertically on round
-    58 // Bottom alignment offset for rectangular
+    (bounds.size.h - 110 - map_height - 8) / 2, // Center vertically on round (110 = content height)
+    0 // No offset for rectangular
   );
 
-  // Position elements with appropriate offsets
-  const int16_t city_y = PBL_IF_ROUND_ELSE(23 + vertical_offset, 81);
-  const int16_t ruler_y = PBL_IF_ROUND_ELSE(40 + vertical_offset, 98);
-  const int16_t time_y = PBL_IF_ROUND_ELSE(49 + vertical_offset, 107);
-  const int16_t relative_info_y = PBL_IF_ROUND_ELSE(91 + vertical_offset, 149);
+  // Create map layer - full width for rectangular watches, margins for round
+  const int16_t map_margin = PBL_IF_ROUND_ELSE(base_margin, 0);
+  data->map_layer = layer_create(GRect(map_margin, 4 + vertical_offset, screen_width - 2 * map_margin, map_height));
+  layer_set_update_proc(data->map_layer, map_update_proc);
+  layer_add_child(window_layer, data->map_layer);
+
+  // Load world map bitmap
+  data->world_map_bitmap = gbitmap_create_with_resource(RESOURCE_ID_WORLD_MAP);
+
+  // Position elements with appropriate offsets - restore original positioning for rectangular watches
+  const int16_t city_y = PBL_IF_ROUND_ELSE(map_height + 8 + vertical_offset, 81);
+  const int16_t ruler_y = PBL_IF_ROUND_ELSE(map_height + 8 + 17 + vertical_offset, 98);
+  const int16_t time_y = PBL_IF_ROUND_ELSE(map_height + 8 + 26 + vertical_offset, 107);
+  const int16_t relative_info_y = PBL_IF_ROUND_ELSE(map_height + 8 + 68 + vertical_offset, 149);
 
   data->horizontal_ruler_layer = layer_create(GRect(base_margin, ruler_y, screen_width - 2 * base_margin, 20));
   layer_set_update_proc(data->horizontal_ruler_layer, horizontal_ruler_update_proc);
@@ -246,6 +390,19 @@ static void main_window_load(Window *window) {
   init_statusbar_text_layer(window_layer, &data->pagination_layer);
   text_layer_set_text_alignment(data->pagination_layer, GTextAlignmentRight);
 
+  // Initialize dot animation state
+  data->dot_animation_active = false;
+  data->dot_animation_progress = ANIMATION_NORMALIZED_MAX;
+
+  // Set initial dot position to current city
+  int current_city_index = world_clock_index_of_data_point(data->data_point);
+  CityCoordinates *coords = world_clock_get_city_coordinates(current_city_index);
+  if (coords) {
+    const GRect map_bounds = layer_get_bounds(data->map_layer);
+    data->current_dot_position = lon_lat_to_screen(coords->longitude, coords->latitude, map_bounds);
+    data->target_dot_position = data->current_dot_position;
+  }
+
   // propagate all view model content to the UI
   world_clock_main_window_view_model_announce_changed(&data->view_model);
 
@@ -259,6 +416,8 @@ static void main_window_unload(Window *window) {
   world_clock_view_model_deinit(&data->view_model);
 
   layer_destroy(data->horizontal_ruler_layer);
+  layer_destroy(data->map_layer);
+  gbitmap_destroy(data->world_map_bitmap);
   text_layer_destroy(data->city_layer);
   text_layer_destroy(data->time_layer);
   text_layer_destroy(data->ampm_layer);
@@ -358,8 +517,15 @@ static void ask_for_scroll(WorldClockData *data, ScrollDirection direction) {
   if (!next_data_point) {
     scroll_animation = animation_for_bounce(data, direction);
   } else {
+    // Get next city index for animation
+    int next_city_index = world_clock_index_of_data_point(next_data_point);
+
     // data point switches immediately
     data->data_point = next_data_point;
+
+    // Start dot animation to new city
+    start_dot_animation(data, next_city_index);
+
     scroll_animation = animation_for_scroll(data, direction, next_data_point);
   }
 

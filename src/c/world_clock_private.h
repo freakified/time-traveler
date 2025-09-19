@@ -14,4 +14,11 @@ typedef struct {
   TextLayer *time_layer;
   TextLayer *ampm_layer;
   TextLayer *relative_info_layer;
+  Layer *map_layer;
+  GBitmap *world_map_bitmap;
+  // Dot animation state
+  GPoint current_dot_position;
+  GPoint target_dot_position;
+  int32_t dot_animation_progress; // 0 to ANIMATION_NORMALIZED_MAX
+  bool dot_animation_active;
 } WorldClockData;

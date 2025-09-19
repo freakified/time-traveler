@@ -175,6 +175,23 @@ WorldClockDataPoint s_data_points[] = {
     },
 };
 
+// City coordinates for map display
+static CityCoordinates s_city_coordinates[] = {
+    {-122.4194, 37.7749}, // San Francisco
+    {-74.0060, 40.7128},  // New York
+    {-0.1278, 51.5074},   // London
+    {139.6917, 35.6895},  // Tokyo
+    {151.2093, -33.8688}, // Sydney
+};
+
+// Get coordinates for a city by index
+CityCoordinates *world_clock_get_city_coordinates(int city_index) {
+    if (city_index < 0 || city_index >= world_clock_num_data_points()) {
+        return NULL;
+    }
+    return &s_city_coordinates[city_index];
+}
+
 int world_clock_num_data_points(void) {
   return ARRAY_LENGTH(s_data_points);
 }
