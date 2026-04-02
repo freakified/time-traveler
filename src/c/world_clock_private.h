@@ -15,7 +15,8 @@ typedef struct {
   TextLayer *ampm_layer;
   TextLayer *relative_info_layer;
   Layer *map_layer;
-  GBitmap *world_map_bitmap;
+  GDrawCommandImage *world_map_image;
+  GRect world_map_draw_rect;
   // Dot animation state
   GPoint current_dot_position;
   GPoint target_dot_position;

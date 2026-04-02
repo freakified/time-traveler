@@ -1,8 +1,10 @@
 {
   "name": "pebble-world-clock",
-  "author": "MakeAwesomeHappen",
+  "author": "Freakified",
   "version": "1.0.0",
-  "keywords": ["pebble-app"],
+  "keywords": [
+    "pebble-app"
+  ],
   "private": true,
   "dependencies": {},
   "pebble": {
@@ -15,7 +17,9 @@
       "basalt",
       "chalk",
       "diorite",
-      "emery"
+      "emery",
+      "flint",
+      "gabbro"
     ],
     "watchapp": {
       "watchface": false
@@ -26,9 +30,9 @@
     "resources": {
       "media": [
         {
-          "type": "bitmap",
+          "type": "raw",
           "name": "WORLD_MAP",
-          "file": "world_map.png"
+          "file": "world_map.pdc"
         }
       ]
     }
