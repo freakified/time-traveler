@@ -24,7 +24,10 @@ void world_clock_view_model_set_time(WorldClockMainWindowViewModel *model, int16
 }
 
 void world_clock_view_model_set_relative_info(WorldClockMainWindowViewModel *model, int16_t relative_offset_minutes, WorldClockDataPoint *data_point) {
-  int16_t relative_offset_hours = relative_offset_minutes / 60;
+  int16_t abs_minutes = (relative_offset_minutes < 0) ? -relative_offset_minutes : relative_offset_minutes;
+  int16_t hours = abs_minutes / 60;
+  int16_t mins = abs_minutes % 60;
+  int sign = (relative_offset_minutes >= 0) ? 1 : -1;
 
   char day_str[10];
   if (data_point->day_label == -1) {
@@ -35,13 +38,16 @@ void world_clock_view_model_set_relative_info(WorldClockMainWindowViewModel *mod
     strcpy(day_str, "TODAY");
   }
 
-  if (relative_offset_hours >= 0) {
-    snprintf(model->relative_info.text, sizeof(model->relative_info.text), "%s, +%d HRS", day_str, relative_offset_hours);
+  char offset_str[12];
+  if (mins == 0) {
+    snprintf(offset_str, sizeof(offset_str), "%c%d HRS", sign > 0 ? '+' : '-', hours);
   } else {
-    snprintf(model->relative_info.text, sizeof(model->relative_info.text), "%s, %d HRS", day_str, relative_offset_hours);
+    snprintf(offset_str, sizeof(offset_str), "%c%d:%02d HRS", sign > 0 ? '+' : '-', hours, mins);
   }
 
-  model->current_offset = relative_offset_hours;
+  snprintf(model->relative_info.text, sizeof(model->relative_info.text), "%s, %s", day_str, offset_str);
+
+  model->current_offset = relative_offset_minutes / 60;
 }
 
 WorldClockDataViewNumbers world_clock_data_point_view_model_numbers(WorldClockDataPoint *data_point) {
