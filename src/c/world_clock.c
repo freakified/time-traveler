@@ -1,6 +1,6 @@
-#include "message_keys.auto.h"
 #include "world_clock_animations.h"
 #include "world_clock_data.h"
+#include "world_clock_messaging.h"
 #include "world_clock_overlay.h"
 #include "world_clock_private.h"
 #include "world_clock_ui.h"
@@ -11,8 +11,6 @@
 #define DST_PERSIST_KEY 1
 #define MARGIN 8
 #define WORLD_MAP_BOTTOM_TRIM 10
-#define WORLD_MAP_APP_MESSAGE_INBOX_SIZE 768
-#define WORLD_MAP_APP_MESSAGE_OUTBOX_SIZE 64
 
 #if defined(PBL_PLATFORM_GABBRO)
 #define WORLD_MAP_TOP 45
@@ -269,74 +267,13 @@ static void horizontal_ruler_update_proc(Layer *layer, GContext *ctx) {
   graphics_draw_line(ctx, GPoint(0, yy), GPoint(bounds.size.w, yy));
 }
 
-static void prv_request_overlay_update(void) {
-  if (!s_main_window) {
-    return;
-  }
-
-  WorldClockData *data = window_get_user_data(s_main_window);
-  if (!data || !data->map_layer) {
-    return;
-  }
-
-  const GRect map_rect = world_clock_calibrated_map_rect(data);
-  if (map_rect.size.w <= 0 || map_rect.size.h <= 0) {
-    return;
-  }
-
-  DictionaryIterator *iter = NULL;
-  AppMessageResult result = app_message_outbox_begin(&iter);
-  if (result != APP_MSG_OK || !iter) {
-    APP_LOG(APP_LOG_LEVEL_WARNING, "overlay request begin failed: %d", result);
-    return;
-  }
-
-  dict_write_uint8(iter, MESSAGE_KEY_request_overlay, 1);
-  dict_write_uint16(iter, MESSAGE_KEY_overlay_map_width, map_rect.size.w);
-  dict_write_uint16(iter, MESSAGE_KEY_overlay_map_height, map_rect.size.h);
-  dict_write_end(iter);
-
-  result = app_message_outbox_send();
-  if (result != APP_MSG_OK) {
-    APP_LOG(APP_LOG_LEVEL_WARNING, "overlay request send failed: %d", result);
-  }
-}
-
-static void prv_inbox_received(DictionaryIterator *iter, void *context) {
+static void prv_overlay_received(uint16_t map_width, uint16_t map_height,
+                                  uint32_t version, uint16_t total_rows,
+                                  uint16_t row_start, uint16_t row_count,
+                                  const uint8_t *row_data, uint16_t row_data_len,
+                                  void *context) {
   WorldClockData *data = window_get_user_data(s_main_window);
   if (!data) {
-    return;
-  }
-
-  Tuple *width_tuple = dict_find(iter, MESSAGE_KEY_overlay_map_width);
-  Tuple *height_tuple = dict_find(iter, MESSAGE_KEY_overlay_map_height);
-  Tuple *version_tuple = dict_find(iter, MESSAGE_KEY_overlay_version);
-  Tuple *total_rows_tuple = dict_find(iter, MESSAGE_KEY_overlay_total_rows);
-  Tuple *row_start_tuple = dict_find(iter, MESSAGE_KEY_overlay_row_start);
-  Tuple *row_count_tuple = dict_find(iter, MESSAGE_KEY_overlay_row_count);
-  Tuple *row_data_tuple = dict_find(iter, MESSAGE_KEY_overlay_row_data);
-
-  if (!width_tuple || !height_tuple || !version_tuple || !total_rows_tuple ||
-      !row_start_tuple || !row_count_tuple || !row_data_tuple) {
-    return;
-  }
-
-  if (row_data_tuple->type != TUPLE_BYTE_ARRAY) {
-    APP_LOG(APP_LOG_LEVEL_WARNING, "overlay row_data tuple type invalid: %d",
-            row_data_tuple->type);
-    return;
-  }
-
-  const uint16_t map_width = (uint16_t)width_tuple->value->int32;
-  const uint16_t map_height = (uint16_t)height_tuple->value->int32;
-  const uint32_t version = (uint32_t)version_tuple->value->int32;
-  const uint16_t total_rows = (uint16_t)total_rows_tuple->value->int32;
-  const uint16_t row_start = (uint16_t)row_start_tuple->value->int32;
-  const uint16_t row_count = (uint16_t)row_count_tuple->value->int32;
-
-  if (total_rows == 0 || total_rows > WORLD_CLOCK_OVERLAY_MAX_ROWS ||
-      row_count == 0 || row_start + row_count > total_rows) {
-    APP_LOG(APP_LOG_LEVEL_WARNING, "overlay payload bounds invalid");
     return;
   }
 
@@ -349,8 +286,7 @@ static void prv_inbox_received(DictionaryIterator *iter, void *context) {
   }
 
   bool complete = world_clock_overlay_feed_chunk(
-      &data->overlay, row_start, row_count,
-      (const uint8_t *)row_data_tuple->value->data, row_data_tuple->length);
+      &data->overlay, row_start, row_count, row_data, row_data_len);
 
   if (complete) {
     data->overlay.valid = true;
@@ -361,17 +297,6 @@ static void prv_inbox_received(DictionaryIterator *iter, void *context) {
     }
   }
 }
-
-static void prv_inbox_dropped(AppMessageResult reason, void *context) {
-  APP_LOG(APP_LOG_LEVEL_WARNING, "inbox dropped: %d", reason);
-}
-
-static void prv_outbox_failed(DictionaryIterator *iter, AppMessageResult reason,
-                              void *context) {
-  APP_LOG(APP_LOG_LEVEL_WARNING, "outbox failed: %d", reason);
-}
-
-static void prv_outbox_sent(DictionaryIterator *iter, void *context) {}
 
 static void set_data_point(WorldClockData *data, WorldClockDataPoint *dp) {
   data->data_point = dp;
@@ -424,7 +349,8 @@ static void prv_handle_minute_tick(struct tm *tick_time, TimeUnits units_changed
       world_clock_data_point_view_model_numbers(data->data_point);
   world_clock_view_model_fill_numbers(&data->view_model, numbers,
                                       data->data_point);
-  prv_request_overlay_update();
+  const GRect map_rect = world_clock_calibrated_map_rect(data);
+  world_clock_messaging_request_overlay(map_rect.size.w, map_rect.size.h);
 }
 
 static void update_ampm_position(WorldClockData *data) {
@@ -585,7 +511,7 @@ static void main_window_load(Window *window) {
 
   prv_update_night_mode(data);
 
-  prv_request_overlay_update();
+  world_clock_messaging_request_overlay(map_rect.size.w, map_rect.size.h);
 }
 
 static void main_window_unload(Window *window) {
@@ -789,12 +715,7 @@ static void init() {
                                               .load = main_window_load,
                                               .unload = main_window_unload,
                                           });
-  app_message_register_inbox_received(prv_inbox_received);
-  app_message_register_inbox_dropped(prv_inbox_dropped);
-  app_message_register_outbox_failed(prv_outbox_failed);
-  app_message_register_outbox_sent(prv_outbox_sent);
-  app_message_open(WORLD_MAP_APP_MESSAGE_INBOX_SIZE,
-                   WORLD_MAP_APP_MESSAGE_OUTBOX_SIZE);
+  world_clock_messaging_init(prv_overlay_received, data);
 
   window_stack_push(s_main_window, true);
   update_status_bar_time();
@@ -805,6 +726,7 @@ static void init() {
 static void deinit() {
   WorldClockData *data = window_get_user_data(s_main_window);
   tick_timer_service_unsubscribe();
+  world_clock_messaging_deinit();
   window_destroy(s_main_window);
   world_clock_overlay_deinit(&data->overlay);
   free(data);
