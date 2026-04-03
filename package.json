@@ -1,5 +1,5 @@
 {
-  "name": "pebble-world-clock",
+  "name": "time-traveller",
   "author": "Freakified",
   "version": "1.0.0",
   "keywords": [
@@ -8,7 +8,7 @@
   "private": true,
   "dependencies": {},
   "pebble": {
-    "displayName": "World Clock",
+    "displayName": "Time Traveller",
     "uuid": "29d0fd74-736a-49cd-83de-204775c46d26",
     "sdkVersion": "3",
     "enableMultiJS": true,
@@ -25,14 +25,44 @@
       "watchface": false
     },
     "messageKeys": [
-      "dummy"
+      "request_overlay",
+      "overlay_map_width",
+      "overlay_map_height",
+      "overlay_version",
+      "overlay_total_rows",
+      "overlay_row_start",
+      "overlay_row_count",
+      "overlay_rows"
     ],
     "resources": {
       "media": [
         {
-          "type": "raw",
+          "type": "bitmap",
           "name": "WORLD_MAP",
-          "file": "world_map.pdc"
+          "file": "images/world_map_small.png",
+          "targetPlatforms": [
+            "aplite",
+            "basalt",
+            "chalk",
+            "diorite",
+            "flint"
+          ]
+        },
+        {
+          "type": "bitmap",
+          "name": "WORLD_MAP",
+          "file": "images/world_map_medium.png",
+          "targetPlatforms": [
+            "emery"
+          ]
+        },
+        {
+          "type": "bitmap",
+          "name": "WORLD_MAP",
+          "file": "images/world_map_large.png",
+          "targetPlatforms": [
+            "gabbro"
+          ]
         }
       ]
     }

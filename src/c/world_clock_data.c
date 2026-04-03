@@ -128,8 +128,7 @@ void world_clock_view_model_fill_colors(WorldClockMainWindowViewModel *model, GC
 }
 
 GColor world_clock_data_point_color(WorldClockDataPoint *data_point) {
-  // Use offset to determine color - larger offsets get different colors
-  return data_point->offset_hours < -10 ? GColorOrange : GColorVividCerulean;
+  return PBL_IF_COLOR_ELSE(GColorCobaltBlue, GColorBlack);
 }
 
 void world_clock_view_model_fill_all(WorldClockMainWindowViewModel *model, WorldClockDataPoint *data_point) {

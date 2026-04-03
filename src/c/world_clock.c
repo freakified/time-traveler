@@ -1,34 +1,245 @@
-#include "pdc-transform/pdc-transform.h"
+#include "message_keys.auto.h"
 #include "world_clock_animations.h"
 #include "world_clock_data.h"
 #include "world_clock_private.h"
 #include <pebble.h>
+#include <stdlib.h>
+#include <string.h>
 
 // Forward declarations for functions not in headers yet
 int world_clock_index_of_data_point(WorldClockDataPoint *dp);
 CityCoordinates *world_clock_get_city_coordinates(int city_index);
+static GRect calibrated_map_rect(const WorldClockData *data);
 
 #define DST_PERSIST_KEY 1
 
 static Window *s_main_window;
 
 #define MARGIN 8
-#define SCALE_FACTOR_BASE 10
-#define WORLD_MAP_NATIVE_WIDTH 109
-#define WORLD_MAP_NATIVE_HEIGHT 50
-
-// Calibrated against the provided native PDC anchor pixels and lightly smoothed
-// to avoid overfitting the low-resolution source art.
-#define WORLD_MAP_CAL_LEFT 0
-#define WORLD_MAP_CAL_TOP -1
-#define WORLD_MAP_CAL_WIDTH 107
-#define WORLD_MAP_CAL_HEIGHT 56
+#define WORLD_MAP_COLOR_FOREGROUND GColorVividCerulean
+#define WORLD_MAP_COLOR_BACKGROUND GColorCobaltBlue
+#define WORLD_MAP_COLOR_FOREGROUND_DARK GColorCobaltBlue
+#define WORLD_MAP_COLOR_BACKGROUND_DARK GColorOxfordBlue
+#define WORLD_MAP_BOTTOM_TRIM 10
+#define WORLD_MAP_MAX_OVERLAY_ROWS 104
+#define WORLD_MAP_OVERLAY_FULL_NIGHT 255
+#define WORLD_MAP_OVERLAY_ROWS_BUFFER_SIZE 128
+#define WORLD_MAP_APP_MESSAGE_INBOX_SIZE 768
+#define WORLD_MAP_APP_MESSAGE_OUTBOX_SIZE 64
 
 #if defined(PBL_PLATFORM_GABBRO)
 #define WORLD_MAP_TOP 45
 #else
 #define WORLD_MAP_TOP STATUS_BAR_LAYER_HEIGHT
 #endif
+
+static GColor prv_world_map_foreground_color(void) {
+  return PBL_IF_COLOR_ELSE(WORLD_MAP_COLOR_FOREGROUND, GColorLightGray);
+}
+
+static GColor prv_world_map_background_color(void) {
+  return PBL_IF_COLOR_ELSE(WORLD_MAP_COLOR_BACKGROUND, GColorBlack);
+}
+
+static GColor prv_world_map_night_foreground_color(void) {
+  return PBL_IF_COLOR_ELSE(WORLD_MAP_COLOR_FOREGROUND_DARK, GColorLightGray);
+}
+
+static GColor prv_world_map_night_background_color(void) {
+  return PBL_IF_COLOR_ELSE(WORLD_MAP_COLOR_BACKGROUND_DARK, GColorBlack);
+}
+
+static uint8_t prv_world_map_palette_size(GBitmapFormat format) {
+  switch (format) {
+  case GBitmapFormat1BitPalette:
+    return 2;
+  case GBitmapFormat2BitPalette:
+    return 4;
+  case GBitmapFormat4BitPalette:
+    return 16;
+  default:
+    return 0;
+  }
+}
+
+static uint8_t prv_world_map_luminance_steps(GColor color) {
+  const uint16_t total = color.r + color.g + color.b;
+  return (uint8_t)((total + 1) / 3);
+}
+
+static uint8_t prv_world_map_blend_channel(uint8_t background,
+                                           uint8_t foreground,
+                                           uint8_t luminance) {
+  return (uint8_t)((background * (3 - luminance) + foreground * luminance + 1) /
+                   3);
+}
+
+static GColor prv_world_map_palette_color_for_luminance(uint8_t luminance,
+                                                        GColor background,
+                                                        GColor foreground) {
+  if (luminance == 0) {
+    return background;
+  }
+  if (luminance >= 3) {
+    return foreground;
+  }
+
+  return (GColor){
+      .a = 3,
+      .r = prv_world_map_blend_channel(background.r, foreground.r, luminance),
+      .g = prv_world_map_blend_channel(background.g, foreground.g, luminance),
+      .b = prv_world_map_blend_channel(background.b, foreground.b, luminance),
+  };
+}
+
+static void prv_world_map_recolor(GBitmap *bitmap) {
+  const GColor background = prv_world_map_background_color();
+  const GColor foreground = prv_world_map_foreground_color();
+  if (!bitmap) {
+    return;
+  }
+
+  GColor *palette = gbitmap_get_palette(bitmap);
+  if (!palette) {
+    return;
+  }
+
+  const uint8_t palette_size =
+      prv_world_map_palette_size(gbitmap_get_format(bitmap));
+  for (uint8_t i = 0; i < palette_size; ++i) {
+    const uint8_t luminance = prv_world_map_luminance_steps(palette[i]);
+    GColor color = prv_world_map_palette_color_for_luminance(
+        luminance, background, foreground);
+    color.a = palette[i].a;
+    palette[i] = color;
+  }
+}
+
+static void prv_world_map_recolor_night(GBitmap *bitmap) {
+  const GColor background = prv_world_map_night_background_color();
+  const GColor foreground = prv_world_map_night_foreground_color();
+  if (!bitmap) {
+    return;
+  }
+
+  GColor *palette = gbitmap_get_palette(bitmap);
+  if (!palette) {
+    return;
+  }
+
+  const uint8_t palette_size =
+      prv_world_map_palette_size(gbitmap_get_format(bitmap));
+  for (uint8_t i = 0; i < palette_size; ++i) {
+    const uint8_t luminance = prv_world_map_luminance_steps(palette[i]);
+    GColor color = prv_world_map_palette_color_for_luminance(
+        luminance, background, foreground);
+    color.a = palette[i].a;
+    palette[i] = color;
+  }
+}
+
+static uint8_t prv_world_map_overlay_twilight_width(void) {
+  return PBL_IF_COLOR_ELSE(2, 1);
+}
+
+static GColor prv_world_map_night_color(void) {
+  return PBL_IF_COLOR_ELSE(GColorBlack, GColorBlack);
+}
+
+static GColor prv_world_map_twilight_color(void) { return GColorWhite; }
+
+static int16_t prv_world_map_clamp_x(int16_t x, int16_t width) {
+  if (x < 0) {
+    return 0;
+  }
+  if (x >= width) {
+    return width - 1;
+  }
+  return x;
+}
+
+static bool prv_world_map_should_draw_twilight_pixel(int16_t x, int16_t y,
+                                                     bool wrapped_segment) {
+  if (PBL_IF_COLOR_ELSE(true, false)) {
+    return true;
+  }
+
+  const int parity = (x + y + (wrapped_segment ? 1 : 0)) & 1;
+  return parity == 0;
+}
+
+static void prv_world_map_draw_segment(GContext *ctx, int16_t y,
+                                       int16_t start_x, int16_t end_x,
+                                       GColor color) {
+  if (start_x > end_x) {
+    return;
+  }
+
+  graphics_context_set_stroke_color(ctx, color);
+  graphics_draw_line(ctx, GPoint(start_x, y), GPoint(end_x, y));
+}
+
+static void prv_world_map_draw_twilight_band(GContext *ctx, int16_t y,
+                                             int16_t min_x, int16_t max_x,
+                                             int16_t x, bool wrapped_segment) {
+  if (x < min_x || x > max_x) {
+    return;
+  }
+
+  if (PBL_IF_COLOR_ELSE(true, false)) {
+    prv_world_map_draw_segment(ctx, y, x, x, prv_world_map_twilight_color());
+    return;
+  }
+
+  if (prv_world_map_should_draw_twilight_pixel(x, y, wrapped_segment)) {
+    prv_world_map_draw_segment(ctx, y, x, x, prv_world_map_twilight_color());
+  }
+}
+
+static void prv_world_map_draw_twilight_edges(GContext *ctx, int16_t y,
+                                              int16_t min_x, int16_t max_x,
+                                              int16_t start_x, int16_t end_x,
+                                              bool wrapped_segment) {
+  const uint8_t twilight_width = prv_world_map_overlay_twilight_width();
+  for (uint8_t offset = 0; offset < twilight_width; ++offset) {
+    prv_world_map_draw_twilight_band(ctx, y, min_x, max_x, start_x + offset,
+                                     wrapped_segment);
+    prv_world_map_draw_twilight_band(ctx, y, min_x, max_x, end_x - offset,
+                                     wrapped_segment);
+  }
+}
+
+static void prv_world_map_draw_bitmap_segment(GContext *ctx, const GBitmap *bitmap,
+                                              const GRect map_rect, int16_t row,
+                                              int16_t start_x, int16_t end_x) {
+  if (!ctx || !bitmap || start_x > end_x) {
+    return;
+  }
+
+  const GRect segment_rect = GRect(start_x, row, end_x - start_x + 1, 1);
+  GBitmap *segment = gbitmap_create_as_sub_bitmap(bitmap, segment_rect);
+  if (!segment) {
+    return;
+  }
+
+  graphics_draw_bitmap_in_rect(
+      ctx, segment,
+      GRect(map_rect.origin.x + start_x, map_rect.origin.y + row,
+            segment_rect.size.w, segment_rect.size.h));
+  gbitmap_destroy(segment);
+}
+
+static void prv_world_map_reset_overlay(WorldClockData *data, uint32_t version,
+                                        uint16_t map_width, uint16_t map_height,
+                                        uint16_t total_rows) {
+  data->overlay_version = version;
+  data->overlay_map_width = map_width;
+  data->overlay_map_height = map_height;
+  data->overlay_expected_rows = total_rows;
+  data->overlay_received_rows = 0;
+  data->overlay_valid = false;
+  memset(data->overlay_row_received, 0, sizeof(data->overlay_row_received));
+}
 
 ////////////////////
 // update procs for our three custom layers
@@ -42,13 +253,13 @@ static void bg_update_proc(Layer *layer, GContext *ctx) {
               ANIMATION_NORMALIZED_MAX;
 
   graphics_context_set_fill_color(
-      ctx, PBL_IF_COLOR_ELSE(model->bg_color.bottom, GColorWhite));
+      ctx, PBL_IF_COLOR_ELSE(model->bg_color.bottom, GColorBlack));
   GRect rect_top = bounds;
   rect_top.size.h = y;
   graphics_fill_rect(ctx, rect_top, 0, GCornerNone);
 
   graphics_context_set_fill_color(
-      ctx, PBL_IF_COLOR_ELSE(model->bg_color.top, GColorWhite));
+      ctx, PBL_IF_COLOR_ELSE(model->bg_color.top, GColorBlack));
   GRect rect_bottom = bounds;
   rect_bottom.origin.y += y;
   graphics_fill_rect(ctx, rect_bottom, 0, GCornerNone);
@@ -83,27 +294,11 @@ static GPoint lon_lat_to_screen(float longitude, float latitude,
 }
 
 static GRect calibrated_map_rect(const WorldClockData *data) {
-  const GRect draw_rect = data->world_map_draw_rect;
-  if (draw_rect.size.w <= 0 || draw_rect.size.h <= 0) {
-    return draw_rect;
+  GRect rect = data->world_map_draw_rect;
+  if (rect.size.h > WORLD_MAP_BOTTOM_TRIM) {
+    rect.size.h -= WORLD_MAP_BOTTOM_TRIM;
   }
-
-  const int16_t left =
-      draw_rect.origin.x +
-      (WORLD_MAP_CAL_LEFT * draw_rect.size.w) / WORLD_MAP_NATIVE_WIDTH;
-  const int16_t top =
-      draw_rect.origin.y +
-      (WORLD_MAP_CAL_TOP * draw_rect.size.h) / WORLD_MAP_NATIVE_HEIGHT;
-  const int16_t right =
-      draw_rect.origin.x +
-      ((WORLD_MAP_CAL_LEFT + WORLD_MAP_CAL_WIDTH) * draw_rect.size.w) /
-          WORLD_MAP_NATIVE_WIDTH;
-  const int16_t bottom =
-      draw_rect.origin.y +
-      ((WORLD_MAP_CAL_TOP + WORLD_MAP_CAL_HEIGHT) * draw_rect.size.h) /
-          WORLD_MAP_NATIVE_HEIGHT;
-
-  return GRect(left, top, right - left, bottom - top);
+  return rect;
 }
 
 // Interpolate between two points based on animation progress
@@ -175,16 +370,113 @@ static void start_dot_animation(WorldClockData *data, int new_city_index) {
   animation_schedule(dot_animation);
 }
 
+static void prv_world_map_draw_overlay(WorldClockData *data, GContext *ctx,
+                                       const GRect map_rect) {
+  if (!data->overlay_valid || data->overlay_expected_rows == 0 ||
+      data->overlay_map_width != map_rect.size.w ||
+      data->overlay_map_height != map_rect.size.h) {
+    return;
+  }
+
+  const int16_t width = map_rect.size.w;
+  const int16_t row_count = data->overlay_expected_rows < map_rect.size.h
+                                ? data->overlay_expected_rows
+                                : map_rect.size.h;
+
+  for (int16_t row = 0; row < row_count; ++row) {
+    const int16_t y = map_rect.origin.y + row;
+    const uint8_t day_start_value = data->overlay_daylight_start[row];
+    const uint8_t day_end_value = data->overlay_daylight_end[row];
+
+    int16_t day_start = prv_world_map_clamp_x(day_start_value, width);
+    int16_t day_end = prv_world_map_clamp_x(day_end_value, width);
+
+    if (day_start_value == WORLD_MAP_OVERLAY_FULL_NIGHT &&
+        day_end_value == WORLD_MAP_OVERLAY_FULL_NIGHT) {
+      if (PBL_IF_COLOR_ELSE(true, false)) {
+        prv_world_map_draw_bitmap_segment(ctx, data->world_map_night_image,
+                                          map_rect, row, 0, width - 1);
+      } else {
+        prv_world_map_draw_segment(ctx, y, map_rect.origin.x,
+                                   map_rect.origin.x + width - 1,
+                                   prv_world_map_night_color());
+      }
+      continue;
+    }
+
+    if (day_start == 0 && day_end == width - 1) {
+      continue;
+    }
+
+    if (PBL_IF_COLOR_ELSE(true, false)) {
+      if (day_start <= day_end) {
+        prv_world_map_draw_bitmap_segment(ctx, data->world_map_night_image,
+                                          map_rect, row, 0, day_start - 1);
+        prv_world_map_draw_bitmap_segment(ctx, data->world_map_night_image,
+                                          map_rect, row, day_end + 1, width - 1);
+      } else {
+        prv_world_map_draw_bitmap_segment(ctx, data->world_map_night_image,
+                                          map_rect, row, day_end + 1,
+                                          day_start - 1);
+      }
+      prv_world_map_draw_segment(ctx, y, map_rect.origin.x + day_start,
+                                 map_rect.origin.x + day_start,
+                                 prv_world_map_twilight_color());
+      prv_world_map_draw_segment(ctx, y, map_rect.origin.x + day_end,
+                                 map_rect.origin.x + day_end,
+                                 prv_world_map_twilight_color());
+      continue;
+    }
+
+    if (day_start <= day_end) {
+      prv_world_map_draw_segment(ctx, y, map_rect.origin.x,
+                                 map_rect.origin.x + day_start - 1,
+                                 prv_world_map_night_color());
+      prv_world_map_draw_segment(ctx, y, map_rect.origin.x + day_end + 1,
+                                 map_rect.origin.x + width - 1,
+                                 prv_world_map_night_color());
+      prv_world_map_draw_twilight_edges(
+          ctx, y, map_rect.origin.x, map_rect.origin.x + width - 1,
+          map_rect.origin.x + day_start, map_rect.origin.x + day_end, false);
+    } else {
+      prv_world_map_draw_segment(ctx, y, map_rect.origin.x + day_end + 1,
+                                 map_rect.origin.x + day_start - 1,
+                                 prv_world_map_night_color());
+      prv_world_map_draw_twilight_edges(
+          ctx, y, map_rect.origin.x, map_rect.origin.x + width - 1,
+          map_rect.origin.x + day_end + 1, map_rect.origin.x + day_start - 1,
+          true);
+    }
+  }
+}
+
 static void map_update_proc(Layer *layer, GContext *ctx) {
   WorldClockData *data = window_get_user_data(s_main_window);
   const GRect bounds = layer_get_bounds(layer);
   const GRect map_rect = calibrated_map_rect(data);
 
-  // Draw the scaled world map PDC within its fitted rect.
+  graphics_context_set_fill_color(ctx, prv_world_map_background_color());
+  graphics_fill_rect(ctx, bounds, 0, GCornerNone);
+
+  // Draw the world map bitmap within its fitted rect.
   if (data->world_map_image) {
-    gdraw_command_image_draw(ctx, data->world_map_image,
-                             data->world_map_draw_rect.origin);
+    graphics_draw_bitmap_in_rect(ctx, data->world_map_image,
+                                 data->world_map_draw_rect);
   }
+
+  // Mask the unused lower strip of the source asset without changing layout.
+  if (data->world_map_draw_rect.size.h > WORLD_MAP_BOTTOM_TRIM) {
+    graphics_context_set_fill_color(ctx, prv_world_map_background_color());
+    graphics_fill_rect(
+        ctx,
+        GRect(data->world_map_draw_rect.origin.x,
+              data->world_map_draw_rect.origin.y +
+                  data->world_map_draw_rect.size.h - WORLD_MAP_BOTTOM_TRIM,
+              data->world_map_draw_rect.size.w, WORLD_MAP_BOTTOM_TRIM),
+        0, GCornerNone);
+  }
+
+  prv_world_map_draw_overlay(data, ctx, map_rect);
 
   // Calculate dot position (animated or static)
   GPoint dot_position;
@@ -209,8 +501,9 @@ static void map_update_proc(Layer *layer, GContext *ctx) {
     }
   }
 
-  // Draw crosshair lines (subtle white lines)
-  graphics_context_set_stroke_color(ctx, GColorWhite);
+  // Draw crosshair lines.
+  graphics_context_set_stroke_color(
+      ctx, PBL_IF_COLOR_ELSE(GColorElectricBlue, GColorWhite));
 
   // Horizontal line across the entire width
   graphics_draw_line(ctx, GPoint(0, dot_position.y),
@@ -221,11 +514,11 @@ static void map_update_proc(Layer *layer, GContext *ctx) {
                      GPoint(dot_position.x, bounds.size.h));
 
   // Draw single animated dot
-  graphics_context_set_fill_color(ctx, GColorRed);
+  graphics_context_set_fill_color(ctx, GColorWhite);
   graphics_fill_circle(ctx, dot_position, 4);
 
   // Draw border for better visibility
-  graphics_context_set_stroke_color(ctx, GColorWhite);
+  graphics_context_set_stroke_color(ctx, GColorBlack);
   graphics_draw_circle(ctx, dot_position, 4);
 }
 
@@ -236,9 +529,193 @@ static void horizontal_ruler_update_proc(Layer *layer, GContext *ctx) {
   const int16_t yy = 11;
 
   graphics_context_set_stroke_color(
-      ctx, PBL_IF_COLOR_ELSE(GColorWhite, GColorBlack));
+      ctx, PBL_IF_COLOR_ELSE(GColorWhite, GColorWhite));
   graphics_draw_line(ctx, GPoint(0, yy), GPoint(bounds.size.w, yy));
 }
+
+static bool prv_world_map_parse_uint8(const char **cursor, uint8_t *value_out) {
+  if (!cursor || !*cursor || !value_out) {
+    return false;
+  }
+
+  const char *current = *cursor;
+  if (*current < '0' || *current > '9') {
+    return false;
+  }
+
+  uint16_t value = 0;
+  while (*current >= '0' && *current <= '9') {
+    value = (uint16_t)(value * 10 + (uint16_t)(*current - '0'));
+    if (value > 255) {
+      return false;
+    }
+    current += 1;
+  }
+
+  *value_out = (uint8_t)value;
+  *cursor = current;
+  return true;
+}
+
+static uint16_t prv_world_map_parse_overlay_rows(WorldClockData *data,
+                                                 uint16_t row_start,
+                                                 uint16_t row_count,
+                                                 const char *rows_text) {
+  if (!rows_text) {
+    return 0;
+  }
+
+  const char *cursor = rows_text;
+  uint16_t parsed_rows = 0;
+
+  while (parsed_rows < row_count && *cursor != '\0') {
+    uint8_t daylight_start = 0;
+    uint8_t daylight_end = 0;
+    if (!prv_world_map_parse_uint8(&cursor, &daylight_start) ||
+        *cursor != ',') {
+      return parsed_rows;
+    }
+    cursor += 1;
+
+    if (!prv_world_map_parse_uint8(&cursor, &daylight_end)) {
+      return parsed_rows;
+    }
+
+    const uint16_t row_index = row_start + parsed_rows;
+    if (row_index >= WORLD_MAP_MAX_OVERLAY_ROWS) {
+      return parsed_rows;
+    }
+
+    data->overlay_daylight_start[row_index] = daylight_start;
+    data->overlay_daylight_end[row_index] = daylight_end;
+    if (!data->overlay_row_received[row_index]) {
+      data->overlay_row_received[row_index] = true;
+      data->overlay_received_rows += 1;
+    }
+
+    parsed_rows += 1;
+    if (*cursor == ';') {
+      cursor += 1;
+    } else if (*cursor != '\0') {
+      return parsed_rows;
+    }
+  }
+
+  return parsed_rows;
+}
+
+static void prv_request_overlay_update(void) {
+  if (!s_main_window) {
+    return;
+  }
+
+  WorldClockData *data = window_get_user_data(s_main_window);
+  if (!data || !data->map_layer) {
+    return;
+  }
+
+  const GRect map_rect = calibrated_map_rect(data);
+  if (map_rect.size.w <= 0 || map_rect.size.h <= 0) {
+    return;
+  }
+
+  DictionaryIterator *iter = NULL;
+  AppMessageResult result = app_message_outbox_begin(&iter);
+  if (result != APP_MSG_OK || !iter) {
+    APP_LOG(APP_LOG_LEVEL_WARNING, "overlay request begin failed: %d", result);
+    return;
+  }
+
+  dict_write_uint8(iter, MESSAGE_KEY_request_overlay, 1);
+  dict_write_uint16(iter, MESSAGE_KEY_overlay_map_width, map_rect.size.w);
+  dict_write_uint16(iter, MESSAGE_KEY_overlay_map_height, map_rect.size.h);
+  dict_write_end(iter);
+
+  result = app_message_outbox_send();
+  if (result != APP_MSG_OK) {
+    APP_LOG(APP_LOG_LEVEL_WARNING, "overlay request send failed: %d", result);
+  }
+}
+
+static void prv_inbox_received(DictionaryIterator *iter, void *context) {
+  WorldClockData *data = window_get_user_data(s_main_window);
+  if (!data) {
+    return;
+  }
+
+  Tuple *width_tuple = dict_find(iter, MESSAGE_KEY_overlay_map_width);
+  Tuple *height_tuple = dict_find(iter, MESSAGE_KEY_overlay_map_height);
+  Tuple *version_tuple = dict_find(iter, MESSAGE_KEY_overlay_version);
+  Tuple *total_rows_tuple = dict_find(iter, MESSAGE_KEY_overlay_total_rows);
+  Tuple *row_start_tuple = dict_find(iter, MESSAGE_KEY_overlay_row_start);
+  Tuple *row_count_tuple = dict_find(iter, MESSAGE_KEY_overlay_row_count);
+  Tuple *rows_tuple = dict_find(iter, MESSAGE_KEY_overlay_rows);
+  char rows_buffer[WORLD_MAP_OVERLAY_ROWS_BUFFER_SIZE];
+
+  if (!width_tuple || !height_tuple || !version_tuple || !total_rows_tuple ||
+      !row_start_tuple || !row_count_tuple || !rows_tuple) {
+    return;
+  }
+
+  if (rows_tuple->type != TUPLE_CSTRING) {
+    APP_LOG(APP_LOG_LEVEL_WARNING, "overlay rows tuple type invalid: %d",
+            rows_tuple->type);
+    return;
+  }
+
+  const uint16_t rows_copy_length = rows_tuple->length < sizeof(rows_buffer) - 1
+                                        ? rows_tuple->length
+                                        : sizeof(rows_buffer) - 1;
+  strncpy(rows_buffer, rows_tuple->value->cstring, rows_copy_length);
+  rows_buffer[rows_copy_length] = '\0';
+
+  const uint16_t map_width = (uint16_t)width_tuple->value->int32;
+  const uint16_t map_height = (uint16_t)height_tuple->value->int32;
+  const uint32_t version = (uint32_t)version_tuple->value->int32;
+  const uint16_t total_rows = (uint16_t)total_rows_tuple->value->int32;
+  const uint16_t row_start = (uint16_t)row_start_tuple->value->int32;
+  const uint16_t row_count = (uint16_t)row_count_tuple->value->int32;
+
+  if (total_rows == 0 || total_rows > WORLD_MAP_MAX_OVERLAY_ROWS ||
+      row_count == 0 || row_start + row_count > total_rows) {
+    APP_LOG(APP_LOG_LEVEL_WARNING, "overlay payload bounds invalid");
+    return;
+  }
+
+  if (data->overlay_version != version ||
+      data->overlay_map_width != map_width ||
+      data->overlay_map_height != map_height ||
+      data->overlay_expected_rows != total_rows) {
+    prv_world_map_reset_overlay(data, version, map_width, map_height,
+                                total_rows);
+  }
+
+  const uint16_t parsed_rows =
+      prv_world_map_parse_overlay_rows(data, row_start, row_count, rows_buffer);
+  if (parsed_rows != row_count) {
+    APP_LOG(APP_LOG_LEVEL_WARNING, "overlay chunk parse mismatch: %u/%u",
+            (unsigned int)parsed_rows, (unsigned int)row_count);
+    return;
+  }
+
+  if (data->overlay_received_rows >= data->overlay_expected_rows) {
+    data->overlay_valid = true;
+    if (data->map_layer) {
+      layer_mark_dirty(data->map_layer);
+    }
+  }
+}
+
+static void prv_inbox_dropped(AppMessageResult reason, void *context) {
+  APP_LOG(APP_LOG_LEVEL_WARNING, "inbox dropped: %d", reason);
+}
+
+static void prv_outbox_failed(DictionaryIterator *iter, AppMessageResult reason,
+                              void *context) {
+  APP_LOG(APP_LOG_LEVEL_WARNING, "outbox failed: %d", reason);
+}
+
+static void prv_outbox_sent(DictionaryIterator *iter, void *context) {}
 
 ////////////////////
 // App boilerplate
@@ -264,7 +741,7 @@ static GRect init_text_layer(Layer *parent_layer, TextLayer **text_layer,
   *text_layer = text_layer_create(frame);
   text_layer_set_background_color(*text_layer, GColorClear);
   text_layer_set_text_color(*text_layer,
-                            PBL_IF_COLOR_ELSE(GColorWhite, GColorBlack));
+                            PBL_IF_COLOR_ELSE(GColorWhite, GColorWhite));
   text_layer_set_font(*text_layer, fonts_get_system_font(font_key));
 
   // Center align text horizontally on round watches
@@ -295,7 +772,7 @@ void init_statusbar_text_layer(Layer *parent, TextLayer **layer) {
   *layer = text_layer_create(frame);
   text_layer_set_background_color(*layer, GColorClear);
   text_layer_set_text_color(*layer,
-                            PBL_IF_COLOR_ELSE(GColorWhite, GColorBlack));
+                            PBL_IF_COLOR_ELSE(GColorWhite, GColorWhite));
   text_layer_set_font(*layer, font);
   layer_add_child(parent, text_layer_get_layer(*layer));
 
@@ -363,6 +840,7 @@ static void prv_handle_minute_tick(struct tm *tick_time,
       world_clock_data_point_view_model_numbers(data->data_point);
   world_clock_view_model_fill_numbers(&data->view_model, numbers,
                                       data->data_point);
+  prv_request_overlay_update();
 }
 
 static void update_ampm_position(WorldClockData *data) {
@@ -432,28 +910,25 @@ static void main_window_load(Window *window) {
   const int16_t map_margin = PBL_IF_ROUND_ELSE(10, -10);
   const int16_t map_width = screen_width - 2 * map_margin;
 
-  // Load and scale the world map PDC image to fit the available width.
-  data->world_map_image =
-      gdraw_command_image_create_with_resource(RESOURCE_ID_WORLD_MAP);
+  data->world_map_base_image =
+      gbitmap_create_with_resource(RESOURCE_ID_WORLD_MAP);
+  data->world_map_night_image =
+      gbitmap_create_with_resource(RESOURCE_ID_WORLD_MAP);
+  data->world_map_image = gbitmap_create_with_resource(RESOURCE_ID_WORLD_MAP);
+  prv_world_map_recolor(data->world_map_base_image);
+  prv_world_map_recolor_night(data->world_map_night_image);
+  prv_world_map_recolor(data->world_map_image);
 
   int16_t map_height = 72;
   data->world_map_draw_rect = GRectZero;
-  if (data->world_map_image) {
-    const GSize image_size =
-        gdraw_command_image_get_bounds_size(data->world_map_image);
-    int scale10 =
-        (int)(((int32_t)map_width * SCALE_FACTOR_BASE) / image_size.w);
-    if (scale10 < 1) {
-      scale10 = 1;
+  if (data->world_map_base_image) {
+    const GRect image_bounds = gbitmap_get_bounds(data->world_map_base_image);
+    map_height = image_bounds.size.h;
+    if (map_height > WORLD_MAP_BOTTOM_TRIM) {
+      map_height -= WORLD_MAP_BOTTOM_TRIM;
     }
-
-    pdc_transform_scale_image(data->world_map_image, scale10);
-
-    const GSize scaled_size =
-        gdraw_command_image_get_bounds_size(data->world_map_image);
-    map_height = scaled_size.h;
-    data->world_map_draw_rect =
-        GRect((map_width - scaled_size.w) / 2, 0, scaled_size.w, scaled_size.h);
+    data->world_map_draw_rect = GRect((map_width - image_bounds.size.w) / 2, 0,
+                                      image_bounds.size.w, image_bounds.size.h);
   }
 
   // Create map layer - full width for rectangular watches, margins for round
@@ -494,7 +969,7 @@ static void main_window_load(Window *window) {
   data->ampm_layer = text_layer_create(ampm_frame);
   text_layer_set_background_color(data->ampm_layer, GColorClear);
   text_layer_set_text_color(data->ampm_layer,
-                            PBL_IF_COLOR_ELSE(GColorWhite, GColorBlack));
+                            PBL_IF_COLOR_ELSE(GColorWhite, GColorWhite));
   text_layer_set_font(
       data->ampm_layer,
       fonts_get_system_font(FONT_KEY_LECO_26_BOLD_NUMBERS_AM_PM));
@@ -528,6 +1003,7 @@ static void main_window_load(Window *window) {
 
   // Position AM/PM layer correctly on startup
   update_ampm_position(data);
+  prv_request_overlay_update();
 }
 
 static void main_window_unload(Window *window) {
@@ -537,7 +1013,9 @@ static void main_window_unload(Window *window) {
 
   layer_destroy(data->horizontal_ruler_layer);
   layer_destroy(data->map_layer);
-  gdraw_command_image_destroy(data->world_map_image);
+  gbitmap_destroy(data->world_map_base_image);
+  gbitmap_destroy(data->world_map_night_image);
+  gbitmap_destroy(data->world_map_image);
   text_layer_destroy(data->city_layer);
   text_layer_destroy(data->time_layer);
   text_layer_destroy(data->ampm_layer);
@@ -735,14 +1213,24 @@ static void init() {
                                                 .load = main_window_load,
                                                 .unload = main_window_unload,
                                             });
+  app_message_register_inbox_received(prv_inbox_received);
+  app_message_register_inbox_dropped(prv_inbox_dropped);
+  app_message_register_outbox_failed(prv_outbox_failed);
+  app_message_register_outbox_sent(prv_outbox_sent);
+  app_message_open(WORLD_MAP_APP_MESSAGE_INBOX_SIZE,
+                   WORLD_MAP_APP_MESSAGE_OUTBOX_SIZE);
+
   window_stack_push(s_main_window, true);
   update_status_bar_time();
+
   tick_timer_service_subscribe(MINUTE_UNIT, prv_handle_minute_tick);
 }
 
 static void deinit() {
+  WorldClockData *data = window_get_user_data(s_main_window);
   tick_timer_service_unsubscribe();
   window_destroy(s_main_window);
+  free(data);
 }
 
 int main(void) {
