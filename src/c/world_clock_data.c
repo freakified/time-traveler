@@ -48,7 +48,6 @@ void world_clock_view_model_set_relative_info(WorldClockMainWindowViewModel *mod
   int local_day = (int)(now / 86400);
   int city_day = (int)(city_time_seconds / 86400);
   int day_diff = city_day - local_day;
-  APP_LOG(APP_LOG_LEVEL_DEBUG, "day_diff: %d", day_diff);
 
   char day_str[10];
   if (day_diff == 0) {

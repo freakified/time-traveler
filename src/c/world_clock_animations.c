@@ -1,8 +1,9 @@
 #include <pebble.h>
+#include <stddef.h>
 #include "world_clock_animations.h"
 #include "world_clock_private.h"
 
-typedef void (*WeatherDataAnimatedNumbersSetter)(WorldClockData *data, WorldClockDataViewNumbers numbers);
+typedef void (*AnimatedNumbersSetter)(void *subject, WorldClockDataViewNumbers numbers);
 
 static WorldClockDataViewNumbers get_animated_numbers(WorldClockMainWindowViewModel *model) {
   return (WorldClockDataViewNumbers) {
@@ -12,11 +13,10 @@ static WorldClockDataViewNumbers get_animated_numbers(WorldClockMainWindowViewMo
   };
 }
 
-static void set_animated_numbers(WorldClockMainWindowViewModel *model, WorldClockDataViewNumbers numbers) {
-  // Get the WorldClockData from the model (view_model is the second field, offset 4 bytes)
-  WorldClockData *data = (WorldClockData *)((char *)model - 4);
-  world_clock_view_model_fill_numbers(model, numbers, data->data_point);
-  world_clock_main_window_view_model_announce_changed(model);
+static void set_animated_numbers(void *subject, WorldClockDataViewNumbers numbers) {
+  WorldClockData *data = (WorldClockData *)((char *)subject - offsetof(WorldClockData, view_model));
+  world_clock_view_model_fill_numbers(&data->view_model, numbers, data->data_point);
+  world_clock_main_window_view_model_announce_changed(&data->view_model);
 }
 
 static inline int16_t distance_interpolate(const int32_t normalized, int16_t from, int16_t to) {
@@ -28,13 +28,13 @@ void property_animation_update_animated_numbers(PropertyAnimation *property_anim
   property_animation_from(property_animation, &from, sizeof(from), false);
   property_animation_to(property_animation, &to, sizeof(to), false);
 
-   WorldClockDataViewNumbers current = (WorldClockDataViewNumbers) {
-     .hour = distance_interpolate(distance_normalized, from.hour, to.hour),
-     .offset = distance_interpolate(distance_normalized, from.offset, to.offset),
-     .minute = distance_interpolate(distance_normalized, from.minute, to.minute),
-   };
+  WorldClockDataViewNumbers current = (WorldClockDataViewNumbers) {
+    .hour = distance_interpolate(distance_normalized, from.hour, to.hour),
+    .offset = distance_interpolate(distance_normalized, from.offset, to.offset),
+    .minute = distance_interpolate(distance_normalized, from.minute, to.minute),
+  };
   PropertyAnimationImplementation *impl = (PropertyAnimationImplementation *) animation_get_implementation((Animation *) property_animation);
-  WeatherDataAnimatedNumbersSetter setter = (WeatherDataAnimatedNumbersSetter)impl->accessors.setter.grect;
+  AnimatedNumbersSetter setter = (AnimatedNumbersSetter)impl->accessors.setter.grect;
 
   void *subject;
   if (property_animation_get_subject(property_animation, &subject) && subject) {
@@ -52,7 +52,6 @@ static const PropertyAnimationImplementation s_animated_numbers_implementation =
   },
 };
 
-
 Animation *world_clock_create_view_model_animation_numbers(WorldClockMainWindowViewModel *view_model, WorldClockDataPoint *next_data_point) {
   PropertyAnimation *number_animation = property_animation_create(&s_animated_numbers_implementation, view_model, NULL, NULL);
   WorldClockDataViewNumbers numbers = get_animated_numbers(view_model);
@@ -64,14 +63,9 @@ Animation *world_clock_create_view_model_animation_numbers(WorldClockMainWindowV
 
 // --------------------------
 
-WorldClockMainWindowViewModel *view_model_from_animation(Animation *animation) {
-  void *subject = NULL;
-  property_animation_get_subject((PropertyAnimation *) animation, &subject);
-  return subject;
-}
-
 static void update_bg_color_normalized(Animation *animation, const uint32_t distance_normalized) {
-  WorldClockMainWindowViewModel *view_model = view_model_from_animation(animation);
+  WorldClockMainWindowViewModel *view_model = NULL;
+  property_animation_get_subject((PropertyAnimation *) animation, (void **)&view_model);
 
   view_model->bg_color.to_bottom_normalized = distance_normalized;
   world_clock_main_window_view_model_announce_changed(view_model);
@@ -84,15 +78,15 @@ static const PropertyAnimationImplementation s_bg_color_normalized_implementatio
 };
 
 static void bg_colors_animation_started(Animation *animation, void *context) {
-  WorldClockMainWindowViewModel *view_model = view_model_from_animation(animation);
-  WorldClockData *data = (WorldClockData *)((char *)view_model - 4);
+  WorldClockMainWindowViewModel *view_model = NULL;
+  property_animation_get_subject((PropertyAnimation *) animation, (void **)&view_model);
 
-  WorldClockDataPoint *dp = context;
+  WorldClockData *data = (WorldClockData *)((char *)view_model - offsetof(WorldClockData, view_model));
+  WorldClockDataPoint *dp = (WorldClockDataPoint *)context;
   int city_index = world_clock_index_of_data_point(dp);
   bool is_night = world_clock_is_city_index_night(data, city_index);
   GColor color = world_clock_data_point_color(dp, is_night);
 
-  // before, .top and .bottom are set to the current color, see world_clock_view_model_fill_colors()
   if (animation_get_reverse(animation)) {
     view_model->bg_color.top = color;
   } else {
@@ -103,10 +97,11 @@ static void bg_colors_animation_started(Animation *animation, void *context) {
 }
 
 static void bg_colors_animation_stopped(Animation *animation, bool finished, void *context) {
-  WorldClockMainWindowViewModel *view_model = view_model_from_animation(animation);
-  WorldClockData *data = (WorldClockData *)((char *)view_model - 4);
+  WorldClockMainWindowViewModel *view_model = NULL;
+  property_animation_get_subject((PropertyAnimation *) animation, (void **)&view_model);
 
-  WorldClockDataPoint *dp = context;
+  WorldClockData *data = (WorldClockData *)((char *)view_model - offsetof(WorldClockData, view_model));
+  WorldClockDataPoint *dp = (WorldClockDataPoint *)context;
   int city_index = world_clock_index_of_data_point(dp);
   bool is_night = world_clock_is_city_index_night(data, city_index);
   GColor color = world_clock_data_point_color(dp, is_night);
@@ -122,7 +117,3 @@ Animation *world_clock_create_view_model_animation_bgcolor(WorldClockMainWindowV
   }, next_data_point);
   return bg_animation;
 }
-
-// -------------------------
-
-

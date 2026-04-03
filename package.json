@@ -32,7 +32,7 @@
       "overlay_total_rows",
       "overlay_row_start",
       "overlay_row_count",
-      "overlay_rows"
+      "overlay_row_data"
     ],
     "resources": {
       "media": [

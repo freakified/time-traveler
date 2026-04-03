@@ -5,6 +5,7 @@ var FULL_NIGHT_SENTINEL = 255;
 var lastRequestedSize = null;
 var lastOverlayVersion = 0;
 var minuteTimer = null;
+var lastSentRows = null;
 
 function dayOfYearUtc(date) {
   var start = Date.UTC(date.getUTCFullYear(), 0, 0);
@@ -96,10 +97,31 @@ function computeOverlayRows(width, height, date) {
   for (var row = 0; row < height; row += 1) {
     var latitude = 90 - ((row + 0.5) / height) * 180;
     var interval = daylightIntervalForLatitude(latitude, solar, width);
-    rows.push(interval[0] + "," + interval[1]);
+    rows.push(interval);
   }
 
   return rows;
+}
+
+function rowsAreIdentical(a, b) {
+  if (!a || !b || a.length !== b.length) {
+    return false;
+  }
+  for (var i = 0; i < a.length; i++) {
+    if (a[i][0] !== b[i][0] || a[i][1] !== b[i][1]) {
+      return false;
+    }
+  }
+  return true;
+}
+
+function rowsToBinary(rows) {
+  var data = [];
+  for (var i = 0; i < rows.length; i++) {
+    data.push(rows[i][0]);
+    data.push(rows[i][1]);
+  }
+  return data;
 }
 
 function nextOverlayVersion() {
@@ -124,12 +146,20 @@ function sendOverlayForSize(width, height) {
     return;
   }
 
-  var version = nextOverlayVersion();
   var rows = computeOverlayRows(width, height, new Date());
+
+  if (rowsAreIdentical(rows, lastSentRows)) {
+    return;
+  }
+
+  lastSentRows = rows;
+
+  var version = nextOverlayVersion();
   var chunks = [];
 
   for (var start = 0; start < rows.length; start += OVERLAY_CHUNK_ROWS) {
     var chunkRows = rows.slice(start, start + OVERLAY_CHUNK_ROWS);
+    var binaryData = rowsToBinary(chunkRows);
     chunks.push({
       overlay_map_width: width,
       overlay_map_height: height,
@@ -137,7 +167,7 @@ function sendOverlayForSize(width, height) {
       overlay_total_rows: rows.length,
       overlay_row_start: start,
       overlay_row_count: chunkRows.length,
-      overlay_rows: chunkRows.join(";")
+      overlay_row_data: binaryData
     });
   }
 
@@ -191,5 +221,6 @@ Pebble.addEventListener("appmessage", function(event) {
     height: height
   };
 
+  lastSentRows = null;
   sendOverlayForSize(width, height);
 });
