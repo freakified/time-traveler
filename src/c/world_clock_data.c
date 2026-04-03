@@ -128,7 +128,7 @@ void world_clock_view_model_fill_colors(WorldClockMainWindowViewModel *model, GC
 }
 
 GColor world_clock_data_point_color(WorldClockDataPoint *data_point) {
-  return PBL_IF_COLOR_ELSE(GColorCobaltBlue, GColorBlack);
+  return COLOR_APP_BACKGROUND;
 }
 
 void world_clock_view_model_fill_all(WorldClockMainWindowViewModel *model, WorldClockDataPoint *data_point) {

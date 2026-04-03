@@ -17,10 +17,6 @@ static GRect calibrated_map_rect(const WorldClockData *data);
 static Window *s_main_window;
 
 #define MARGIN 8
-#define WORLD_MAP_COLOR_FOREGROUND GColorVividCerulean
-#define WORLD_MAP_COLOR_BACKGROUND GColorCobaltBlue
-#define WORLD_MAP_COLOR_FOREGROUND_DARK GColorCobaltBlue
-#define WORLD_MAP_COLOR_BACKGROUND_DARK GColorOxfordBlue
 #define WORLD_MAP_BOTTOM_TRIM 10
 #define WORLD_MAP_MAX_OVERLAY_ROWS 104
 
@@ -42,22 +38,6 @@ typedef struct {
 #else
 #define WORLD_MAP_TOP STATUS_BAR_LAYER_HEIGHT
 #endif
-
-static GColor prv_world_map_foreground_color(void) {
-  return PBL_IF_COLOR_ELSE(WORLD_MAP_COLOR_FOREGROUND, GColorLightGray);
-}
-
-static GColor prv_world_map_background_color(void) {
-  return PBL_IF_COLOR_ELSE(WORLD_MAP_COLOR_BACKGROUND, GColorBlack);
-}
-
-static GColor prv_world_map_night_foreground_color(void) {
-  return PBL_IF_COLOR_ELSE(WORLD_MAP_COLOR_FOREGROUND_DARK, GColorLightGray);
-}
-
-static GColor prv_world_map_night_background_color(void) {
-  return PBL_IF_COLOR_ELSE(WORLD_MAP_COLOR_BACKGROUND_DARK, GColorBlack);
-}
 
 static uint8_t prv_world_map_palette_size(GBitmapFormat format) {
   switch (format) {
@@ -103,8 +83,8 @@ static GColor prv_world_map_palette_color_for_luminance(uint8_t luminance,
 }
 
 static void prv_world_map_recolor(GBitmap *bitmap) {
-  const GColor background = prv_world_map_background_color();
-  const GColor foreground = prv_world_map_foreground_color();
+  const GColor background = COLOR_MAP_BACKGROUND;
+  const GColor foreground = COLOR_MAP_FOREGROUND;
   if (!bitmap) {
     return;
   }
@@ -126,8 +106,8 @@ static void prv_world_map_recolor(GBitmap *bitmap) {
 }
 
 static void prv_world_map_recolor_night(GBitmap *bitmap) {
-  const GColor background = prv_world_map_night_background_color();
-  const GColor foreground = prv_world_map_night_foreground_color();
+  const GColor background = COLOR_MAP_NIGHT_BACKGROUND;
+  const GColor foreground = COLOR_MAP_NIGHT_FOREGROUND;
   if (!bitmap) {
     return;
   }
@@ -149,14 +129,8 @@ static void prv_world_map_recolor_night(GBitmap *bitmap) {
 }
 
 static uint8_t prv_world_map_overlay_twilight_width(void) {
-  return PBL_IF_COLOR_ELSE(2, 1);
+  return PBL_IF_COLOR_ELSE(0, 0);
 }
-
-static GColor prv_world_map_night_color(void) {
-  return PBL_IF_COLOR_ELSE(GColorBlack, GColorBlack);
-}
-
-static GColor prv_world_map_twilight_color(void) { return GColorWhite; }
 
 static int16_t prv_world_map_clamp_x(int16_t x, int16_t width) {
   if (x < 0) {
@@ -197,12 +171,12 @@ static void prv_world_map_draw_twilight_band(GContext *ctx, int16_t y,
   }
 
   if (PBL_IF_COLOR_ELSE(true, false)) {
-    prv_world_map_draw_segment(ctx, y, x, x, prv_world_map_twilight_color());
+    prv_world_map_draw_segment(ctx, y, x, x, COLOR_MAP_TWILIGHT);
     return;
   }
 
   if (prv_world_map_should_draw_twilight_pixel(x, y, wrapped_segment)) {
-    prv_world_map_draw_segment(ctx, y, x, x, prv_world_map_twilight_color());
+    prv_world_map_draw_segment(ctx, y, x, x, COLOR_MAP_TWILIGHT);
   }
 }
 
@@ -219,7 +193,8 @@ static void prv_world_map_draw_twilight_edges(GContext *ctx, int16_t y,
   }
 }
 
-static void prv_world_map_draw_bitmap_segment(GContext *ctx, const GBitmap *bitmap,
+static void prv_world_map_draw_bitmap_segment(GContext *ctx,
+                                              const GBitmap *bitmap,
                                               const GRect map_rect, int16_t row,
                                               int16_t start_x, int16_t end_x) {
   if (!ctx || !bitmap || start_x > end_x) {
@@ -232,10 +207,10 @@ static void prv_world_map_draw_bitmap_segment(GContext *ctx, const GBitmap *bitm
     return;
   }
 
-  graphics_draw_bitmap_in_rect(
-      ctx, segment,
-      GRect(map_rect.origin.x + start_x, map_rect.origin.y + row,
-            segment_rect.size.w, segment_rect.size.h));
+  graphics_draw_bitmap_in_rect(ctx, segment,
+                               GRect(map_rect.origin.x + start_x,
+                                     map_rect.origin.y + row,
+                                     segment_rect.size.w, segment_rect.size.h));
   gbitmap_destroy(segment);
 }
 
@@ -453,7 +428,7 @@ static void prv_world_map_draw_overlay(WorldClockData *data, GContext *ctx,
       } else {
         prv_world_map_draw_segment(ctx, y, map_rect.origin.x,
                                    map_rect.origin.x + width - 1,
-                                   prv_world_map_night_color());
+                                   COLOR_MAP_NIGHT_OVERLAY);
       }
       continue;
     }
@@ -467,35 +442,30 @@ static void prv_world_map_draw_overlay(WorldClockData *data, GContext *ctx,
         prv_world_map_draw_bitmap_segment(ctx, data->world_map_night_image,
                                           map_rect, row, 0, day_start - 1);
         prv_world_map_draw_bitmap_segment(ctx, data->world_map_night_image,
-                                          map_rect, row, day_end + 1, width - 1);
+                                          map_rect, row, day_end + 1,
+                                          width - 1);
       } else {
         prv_world_map_draw_bitmap_segment(ctx, data->world_map_night_image,
                                           map_rect, row, day_end + 1,
                                           day_start - 1);
       }
-      prv_world_map_draw_segment(ctx, y, map_rect.origin.x + day_start,
-                                 map_rect.origin.x + day_start,
-                                 prv_world_map_twilight_color());
-      prv_world_map_draw_segment(ctx, y, map_rect.origin.x + day_end,
-                                 map_rect.origin.x + day_end,
-                                 prv_world_map_twilight_color());
       continue;
     }
 
     if (day_start <= day_end) {
       prv_world_map_draw_segment(ctx, y, map_rect.origin.x,
                                  map_rect.origin.x + day_start - 1,
-                                 prv_world_map_night_color());
+                                 COLOR_MAP_NIGHT_OVERLAY);
       prv_world_map_draw_segment(ctx, y, map_rect.origin.x + day_end + 1,
                                  map_rect.origin.x + width - 1,
-                                 prv_world_map_night_color());
+                                 COLOR_MAP_NIGHT_OVERLAY);
       prv_world_map_draw_twilight_edges(
           ctx, y, map_rect.origin.x, map_rect.origin.x + width - 1,
           map_rect.origin.x + day_start, map_rect.origin.x + day_end, false);
     } else {
       prv_world_map_draw_segment(ctx, y, map_rect.origin.x + day_end + 1,
                                  map_rect.origin.x + day_start - 1,
-                                 prv_world_map_night_color());
+                                 COLOR_MAP_NIGHT_OVERLAY);
       prv_world_map_draw_twilight_edges(
           ctx, y, map_rect.origin.x, map_rect.origin.x + width - 1,
           map_rect.origin.x + day_end + 1, map_rect.origin.x + day_start - 1,
@@ -509,7 +479,7 @@ static void map_update_proc(Layer *layer, GContext *ctx) {
   const GRect bounds = layer_get_bounds(layer);
   const GRect map_rect = calibrated_map_rect(data);
 
-  graphics_context_set_fill_color(ctx, prv_world_map_background_color());
+  graphics_context_set_fill_color(ctx, COLOR_MAP_BACKGROUND);
   graphics_fill_rect(ctx, bounds, 0, GCornerNone);
 
   // Draw the world map bitmap within its fitted rect.
@@ -520,7 +490,7 @@ static void map_update_proc(Layer *layer, GContext *ctx) {
 
   // Mask the unused lower strip of the source asset without changing layout.
   if (data->world_map_draw_rect.size.h > WORLD_MAP_BOTTOM_TRIM) {
-    graphics_context_set_fill_color(ctx, prv_world_map_background_color());
+    graphics_context_set_fill_color(ctx, COLOR_MAP_BACKGROUND);
     graphics_fill_rect(
         ctx,
         GRect(data->world_map_draw_rect.origin.x,
@@ -556,8 +526,7 @@ static void map_update_proc(Layer *layer, GContext *ctx) {
   }
 
   // Draw crosshair lines.
-  graphics_context_set_stroke_color(
-      ctx, PBL_IF_COLOR_ELSE(GColorElectricBlue, GColorWhite));
+  graphics_context_set_stroke_color(ctx, COLOR_CROSSHAIR);
 
   // Horizontal line across the entire width
   graphics_draw_line(ctx, GPoint(0, dot_position.y),
@@ -568,11 +537,11 @@ static void map_update_proc(Layer *layer, GContext *ctx) {
                      GPoint(dot_position.x, bounds.size.h));
 
   // Draw single animated dot
-  graphics_context_set_fill_color(ctx, GColorWhite);
+  graphics_context_set_fill_color(ctx, COLOR_DOT_FILL);
   graphics_fill_circle(ctx, dot_position, 4);
 
   // Draw border for better visibility
-  graphics_context_set_stroke_color(ctx, GColorBlack);
+  graphics_context_set_stroke_color(ctx, COLOR_DOT_OUTLINE);
   graphics_draw_circle(ctx, dot_position, 4);
 }
 
@@ -582,8 +551,7 @@ static void horizontal_ruler_update_proc(Layer *layer, GContext *ctx) {
   // scrolling
   const int16_t yy = 11;
 
-  graphics_context_set_stroke_color(
-      ctx, PBL_IF_COLOR_ELSE(GColorWhite, GColorWhite));
+  graphics_context_set_stroke_color(ctx, COLOR_RULER);
   graphics_draw_line(ctx, GPoint(0, yy), GPoint(bounds.size.w, yy));
 }
 
@@ -795,8 +763,7 @@ static GRect init_text_layer(Layer *parent_layer, TextLayer **text_layer,
 
   *text_layer = text_layer_create(frame);
   text_layer_set_background_color(*text_layer, GColorClear);
-  text_layer_set_text_color(*text_layer,
-                            PBL_IF_COLOR_ELSE(GColorWhite, GColorWhite));
+  text_layer_set_text_color(*text_layer, COLOR_TEXT_DEFAULT);
   text_layer_set_font(*text_layer, fonts_get_system_font(font_key));
 
   // Center align text horizontally on round watches
@@ -826,8 +793,7 @@ void init_statusbar_text_layer(Layer *parent, TextLayer **layer) {
 
   *layer = text_layer_create(frame);
   text_layer_set_background_color(*layer, GColorClear);
-  text_layer_set_text_color(*layer,
-                            PBL_IF_COLOR_ELSE(GColorWhite, GColorWhite));
+  text_layer_set_text_color(*layer, COLOR_STATUSBAR_TEXT);
   text_layer_set_font(*layer, font);
   layer_add_child(parent, text_layer_get_layer(*layer));
 
@@ -1023,8 +989,7 @@ static void main_window_load(Window *window) {
                            20); // Initial position, will be updated dynamically
   data->ampm_layer = text_layer_create(ampm_frame);
   text_layer_set_background_color(data->ampm_layer, GColorClear);
-  text_layer_set_text_color(data->ampm_layer,
-                            PBL_IF_COLOR_ELSE(GColorWhite, GColorWhite));
+  text_layer_set_text_color(data->ampm_layer, COLOR_TEXT_DEFAULT);
   text_layer_set_font(
       data->ampm_layer,
       fonts_get_system_font(FONT_KEY_LECO_26_BOLD_NUMBERS_AM_PM));
