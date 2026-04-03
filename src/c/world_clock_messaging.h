@@ -15,10 +15,18 @@ typedef void (*WorldClockMessageOverlayCallback)(uint16_t map_width,
                                                  uint16_t row_data_len,
                                                  void *context);
 
+typedef void (*WorldClockMessageCityDataCallback)(const uint8_t *blob,
+                                                  uint16_t length,
+                                                  int8_t user_city_index,
+                                                  void *context);
+
 void world_clock_messaging_init(WorldClockMessageOverlayCallback on_overlay_received,
+                                WorldClockMessageCityDataCallback on_city_data_received,
                                 void *context);
 
 void world_clock_messaging_deinit(void);
 
 void world_clock_messaging_request_overlay(uint16_t map_width,
                                            uint16_t map_height);
+
+void world_clock_messaging_request_city_data(void);

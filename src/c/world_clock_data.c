@@ -12,94 +12,53 @@ void world_clock_view_model_set_time(WorldClockMainWindowViewModel *model, int16
   model->time.minute = minute;
 
   if (clock_is_24h_style()) {
-    // 24-hour format
     snprintf(model->time.text, sizeof(model->time.text), "%02d:%02d", model->time.hour, model->time.minute);
-    model->time.ampm[0] = '\0'; // Empty AM/PM for 24h format
+    model->time.ampm[0] = '\0';
   } else {
-    // 12-hour format with separate AM/PM
     int display_hour = hour % 12;
-    if (display_hour == 0) display_hour = 12; // 12 AM/PM instead of 0
+    if (display_hour == 0) display_hour = 12;
     const char *ampm = (hour < 12) ? "AM" : "PM";
     snprintf(model->time.text, sizeof(model->time.text), "%d:%02d", display_hour, model->time.minute);
     strcpy(model->time.ampm, ampm);
   }
 }
 
-void world_clock_view_model_set_relative_info(WorldClockMainWindowViewModel *model, int16_t relative_offset_hours, WorldClockDataPoint *data_point) {
-  // Get current local time to determine if it's today, yesterday, or tomorrow
-  time_t now = time(NULL);
-  struct tm *local_time = localtime(&now);
-
-  // Calculate local timezone offset in hours
-  int16_t local_offset_hours = local_time->tm_gmtoff / 3600;
-
-  // Calculate GMT offset from relative offset
-  int16_t gmt_offset_hours = relative_offset_hours + local_offset_hours;
-
-  // Add DST adjustment
-  if (data_point->is_dst) {
-    gmt_offset_hours += 1;
-  }
-
-  // Calculate city's current time in UTC
-  time_t city_time_seconds = now + (gmt_offset_hours * 3600);
-
-  // Calculate day difference using seconds since epoch
-  int local_day = (int)(now / 86400);
-  int city_day = (int)(city_time_seconds / 86400);
-  int day_diff = city_day - local_day;
+void world_clock_view_model_set_relative_info(WorldClockMainWindowViewModel *model, int16_t relative_offset_minutes, WorldClockDataPoint *data_point) {
+  int16_t relative_offset_hours = relative_offset_minutes / 60;
 
   char day_str[10];
-  if (day_diff == 0) {
-    strcpy(day_str, "TODAY");
-  } else if (day_diff == 1) {
-    strcpy(day_str, "TOMORROW");
-  } else if (day_diff == -1) {
+  if (data_point->day_label == -1) {
     strcpy(day_str, "YESTERDAY");
+  } else if (data_point->day_label == 1) {
+    strcpy(day_str, "TOMORROW");
   } else {
-    strcpy(day_str, "TODAY"); // Fallback
-  }
-
-  char dst_indicator[5] = "";
-  if (data_point->is_dst) {
-    strcpy(dst_indicator, " DST");
+    strcpy(day_str, "TODAY");
   }
 
   if (relative_offset_hours >= 0) {
-    snprintf(model->relative_info.text, sizeof(model->relative_info.text), "%s, +%d HRS%s", day_str, relative_offset_hours, dst_indicator);
+    snprintf(model->relative_info.text, sizeof(model->relative_info.text), "%s, +%d HRS", day_str, relative_offset_hours);
   } else {
-    snprintf(model->relative_info.text, sizeof(model->relative_info.text), "%s, %d HRS%s", day_str, relative_offset_hours, dst_indicator);
+    snprintf(model->relative_info.text, sizeof(model->relative_info.text), "%s, %d HRS", day_str, relative_offset_hours);
   }
 
   model->current_offset = relative_offset_hours;
 }
 
 WorldClockDataViewNumbers world_clock_data_point_view_model_numbers(WorldClockDataPoint *data_point) {
-  // Get current local time
   time_t now = time(NULL);
   struct tm *current_local = localtime(&now);
 
-  // Calculate GMT time by subtracting local timezone offset
   time_t gmt_seconds = now - current_local->tm_gmtoff;
+  int16_t local_offset_minutes = current_local->tm_gmtoff / 60;
 
-  // Calculate local timezone offset in hours
-  int16_t local_offset_hours = current_local->tm_gmtoff / 3600;
-
-  // Calculate GMT offset including DST
-  int16_t gmt_offset_hours = data_point->offset_hours + (data_point->is_dst ? 1 : 0);
-
-  // Calculate city time by adding offset to GMT (including DST)
-  time_t city_seconds = gmt_seconds + (gmt_offset_hours * 3600);
-
-  // Use localtime to get the correct hour/minute for the city time
+  time_t city_seconds = gmt_seconds + (data_point->offset_minutes * 60);
   struct tm *city_time = localtime(&city_seconds);
 
-  // Calculate offset relative to user's local time
-  int16_t relative_offset = gmt_offset_hours - local_offset_hours;
+  int16_t relative_offset_minutes = data_point->offset_minutes - local_offset_minutes;
 
   return (WorldClockDataViewNumbers){
       .hour = city_time->tm_hour,
-      .offset = relative_offset,
+      .offset = relative_offset_minutes,
       .minute = city_time->tm_min,
   };
 }
@@ -127,7 +86,7 @@ void world_clock_view_model_fill_colors(WorldClockMainWindowViewModel *model, GC
 }
 
 GColor world_clock_data_point_color(WorldClockDataPoint *data_point,
-                                   bool is_night) {
+                                    bool is_night) {
   return is_night ? COLOR_APP_BACKGROUND_NIGHT : COLOR_APP_BACKGROUND;
 }
 
@@ -137,7 +96,7 @@ void world_clock_view_model_fill_all(WorldClockMainWindowViewModel *model, World
   model->announce_changed = annouce_changed;
   world_clock_view_model_fill_strings_and_pagination(model, data_point);
   world_clock_view_model_fill_colors(model, world_clock_data_point_color(data_point, false));
-  world_clock_view_model_fill_night_mode(model, false); // Default to Day
+  world_clock_view_model_fill_night_mode(model, false);
   world_clock_view_model_fill_numbers(model, world_clock_data_point_view_model_numbers(data_point), data_point);
 
   world_clock_main_window_view_model_announce_changed(model);
@@ -167,47 +126,137 @@ void world_clock_view_model_fill_night_mode(WorldClockMainWindowViewModel *model
 }
 
 void world_clock_view_model_deinit(WorldClockMainWindowViewModel *model) {
-  // No cleanup needed for world clock
 }
 
+// ============================================================
+// 49 Casio cities: names only (offsets/day/night come from JS)
+// ============================================================
 WorldClockDataPoint s_data_points[] = {
-    {
-        .city = "SAN FRANCISCO",
-        .offset_hours = -8, // PST: UTC-8
-        .is_dst = false, // Currently PDT
-    },
-    {
-        .city = "NEW YORK",
-        .offset_hours = -5, // EST: UTC-5
-        .is_dst = false, // Currently EDT
-    },
-    {
-        .city = "LONDON",
-        .offset_hours = 0, // GMT: UTC+0
-        .is_dst = false, // Currently BST
-    },
-    {
-        .city = "TOKYO",
-        .offset_hours = 9, // JST: UTC+9
-        .is_dst = false, // No DST
-    },
-    {
-        .city = "SYDNEY",
-        .offset_hours = 10, // AEST: UTC+10
-        .is_dst = false, // Currently AEDT
-    },
+    { .city = "PAGO PAGO" },
+    { .city = "HONOLULU" },
+    { .city = "ANCHORAGE" },
+    { .city = "VANCOUVER" },
+    { .city = "SAN FRANCISCO" },
+    { .city = "EDMONTON" },
+    { .city = "DENVER" },
+    { .city = "MEXICO CITY" },
+    { .city = "CHICAGO" },
+    { .city = "NEW YORK" },
+    { .city = "SANTIAGO" },
+    { .city = "HALIFAX" },
+    { .city = "ST. JOHNS" },
+    { .city = "RIO DE JANEIRO" },
+    { .city = "F. DE NORONHA" },
+    { .city = "PRAIA" },
+    { .city = "UTC" },
+    { .city = "LISBON" },
+    { .city = "LONDON" },
+    { .city = "MADRID" },
+    { .city = "PARIS" },
+    { .city = "ROME" },
+    { .city = "BERLIN" },
+    { .city = "STOCKHOLM" },
+    { .city = "ATHENS" },
+    { .city = "CAIRO" },
+    { .city = "JERUSALEM" },
+    { .city = "MOSCOW" },
+    { .city = "JEDDAH" },
+    { .city = "TEHRAN" },
+    { .city = "DUBAI" },
+    { .city = "KABUL" },
+    { .city = "KARACHI" },
+    { .city = "DELHI" },
+    { .city = "KATHMANDU" },
+    { .city = "DHAKA" },
+    { .city = "YANGON" },
+    { .city = "BANGKOK" },
+    { .city = "SINGAPORE" },
+    { .city = "HONG KONG" },
+    { .city = "BEIJING" },
+    { .city = "TAIPEI" },
+    { .city = "SEOUL" },
+    { .city = "TOKYO" },
+    { .city = "ADELAIDE" },
+    { .city = "GUAM" },
+    { .city = "SYDNEY" },
+    { .city = "NOUMEA" },
+    { .city = "WELLINGTON" },
 };
 
 // City coordinates for map display
 static CityCoordinates s_city_coordinates[] = {
-    {-122.4194, 37.7749}, // San Francisco
-    {-74.0060, 40.7128},  // New York
-    {-0.1278, 51.5074},   // London
-    {139.6917, 35.6895},  // Tokyo
-    {151.2093, -33.8688}, // Sydney
+    {-170.70, -14.27}, // Pago Pago
+    {-157.86,  21.31}, // Honolulu
+    {-149.90,  61.22}, // Anchorage
+    {-123.12,  49.28}, // Vancouver
+    {-122.42,  37.77}, // San Francisco
+    {-113.49,  53.54}, // Edmonton
+    {-104.99,  39.74}, // Denver
+    { -99.13,  19.43}, // Mexico City
+    { -87.63,  41.88}, // Chicago
+    { -74.01,  40.71}, // New York
+    { -70.67, -33.45}, // Santiago
+    { -63.57,  44.65}, // Halifax
+    { -52.71,  47.56}, // St. Johns
+    { -43.17, -22.91}, // Rio De Janeiro
+    { -32.42,  -3.86}, // Fernando de Noronha
+    { -23.51,  14.92}, // Praia
+    {   0.00,   0.00}, // UTC
+    {  -9.14,  38.72}, // Lisbon
+    {  -0.13,  51.51}, // London
+    {  -3.70,  40.42}, // Madrid
+    {   2.35,  48.86}, // Paris
+    {  12.50,  41.90}, // Rome
+    {  13.41,  52.52}, // Berlin
+    {  18.07,  59.33}, // Stockholm
+    {  23.73,  37.98}, // Athens
+    {  31.24,  30.04}, // Cairo
+    {  35.23,  31.77}, // Jerusalem
+    {  37.62,  55.76}, // Moscow
+    {  39.19,  21.49}, // Jeddah
+    {  51.39,  35.69}, // Tehran
+    {  55.27,  25.20}, // Dubai
+    {  69.17,  34.53}, // Kabul
+    {  67.01,  24.86}, // Karachi
+    {  77.21,  28.61}, // Delhi
+    {  85.32,  27.72}, // Kathmandu
+    {  90.41,  23.81}, // Dhaka
+    {  96.20,  16.87}, // Yangon
+    { 100.50,  13.76}, // Bangkok
+    { 103.82,   1.35}, // Singapore
+    { 114.17,  22.32}, // Hong Kong
+    { 116.40,  39.90}, // Beijing
+    { 121.57,  25.03}, // Taipei
+    { 126.98,  37.57}, // Seoul
+    { 139.69,  35.68}, // Tokyo
+    { 138.60, -34.93}, // Adelaide
+    { 144.79,  13.44}, // Guam
+    { 151.21, -33.87}, // Sydney
+    { 166.46, -22.28}, // Noumea
+    { 174.78, -41.29}, // Wellington
 };
 
-// Get coordinates for a city by index
+// Apply binary blob from JS: 4 bytes per city
+//   bytes 0-1: offset_minutes (int16, big-endian)
+//   byte 2:    day_label (0=today, 1=tomorrow, 255=yesterday)
+//   byte 3:    is_night (0 or 1)
+void world_clock_data_apply_js_blob(const uint8_t *blob, uint16_t length) {
+  int num_cities = world_clock_num_data_points();
+  int received = length / 4;
+  int count = (received < num_cities) ? received : num_cities;
+
+  for (int i = 0; i < count; i++) {
+    const uint8_t *p = &blob[i * 4];
+    int16_t offset = (int16_t)((p[0] << 8) | p[1]);
+    int8_t day_label = (p[2] == 255) ? -1 : (int8_t)p[2];
+    bool is_night = (p[3] != 0);
+
+    s_data_points[i].offset_minutes = offset;
+    s_data_points[i].day_label = day_label;
+    s_data_points[i].is_night = is_night;
+  }
+}
+
 CityCoordinates *world_clock_get_city_coordinates(int city_index) {
     if (city_index < 0 || city_index >= world_clock_num_data_points()) {
         return NULL;

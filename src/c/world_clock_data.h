@@ -58,7 +58,7 @@ typedef struct {
     char text[8];
   } pagination;
   struct {
-    char text[25]; // "TODAY, +3 HRS DST" or "YESTERDAY, -5 HRS DST"
+    char text[25]; // "TODAY, +3 HRS" or "YESTERDAY, -5 HRS"
   } relative_info;
   int16_t current_offset; // current offset for animation
   bool is_night;
@@ -76,8 +76,9 @@ void world_clock_main_window_view_model_announce_changed(
 
 typedef struct {
   char *city;
-  int16_t offset_hours; // offset from local time in hours
-  bool is_dst;          // true if currently in DST
+  int16_t offset_minutes; // current offset from UTC in minutes (from JS)
+  int8_t day_label;       // -1 = yesterday, 0 = today, 1 = tomorrow (from JS)
+  bool is_night;          // whether city is currently in nighttime (from JS)
 } WorldClockDataPoint;
 
 typedef struct {
@@ -135,3 +136,6 @@ typedef struct {
 CityCoordinates *world_clock_get_city_coordinates(int city_index);
 
 extern WorldClockDataPoint s_data_points[];
+
+// Dynamic city data from JS
+void world_clock_data_apply_js_blob(const uint8_t *blob, uint16_t length);

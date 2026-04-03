@@ -8,7 +8,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define DST_PERSIST_KEY 1
 #define MARGIN 8
 #define WORLD_MAP_BOTTOM_TRIM 10
 
@@ -303,22 +302,23 @@ static void set_data_point(WorldClockData *data, WorldClockDataPoint *dp) {
   world_clock_view_model_fill_all(&data->view_model, dp);
 }
 
-static void load_dst_settings() {
-  bool dst_settings[5] = {true, true, true, false, true};
-  if (persist_exists(DST_PERSIST_KEY)) {
-    persist_read_data(DST_PERSIST_KEY, dst_settings, sizeof(dst_settings));
-  }
-  for (int i = 0; i < 5; i++) {
-    s_data_points[i].is_dst = dst_settings[i];
-  }
-}
+static void prv_city_data_received(const uint8_t *blob, uint16_t length,
+                                    int8_t user_city_index, void *context) {
+  WorldClockData *data = window_get_user_data(s_main_window);
+  if (!data) return;
 
-static void save_dst_settings() {
-  bool dst_settings[5];
-  for (int i = 0; i < 5; i++) {
-    dst_settings[i] = s_data_points[i].is_dst;
+  world_clock_data_apply_js_blob(blob, length);
+
+  // Apply to current city and refresh display
+  world_clock_view_model_fill_all(&data->view_model, data->data_point);
+
+  // If we have a user city index and haven't initialized yet, start there
+  if (user_city_index >= 0 && user_city_index < world_clock_num_data_points()) {
+    WorldClockDataPoint *user_city = world_clock_data_point_at(user_city_index);
+    if (user_city && data->data_point != user_city) {
+      set_data_point(data, user_city);
+    }
   }
-  persist_write_data(DST_PERSIST_KEY, dst_settings, sizeof(dst_settings));
 }
 
 static void update_status_bar_time() {
@@ -678,29 +678,12 @@ static void down_click_handler(ClickRecognizerRef recognizer, void *context) {
   ask_for_scroll(data, ScrollDirectionDown);
 }
 
-static void select_long_click_handler(ClickRecognizerRef recognizer,
-                                      void *context) {
-  WorldClockData *data = context;
-  data->data_point->is_dst = !data->data_point->is_dst;
-  save_dst_settings();
-  WorldClockDataViewNumbers numbers =
-      world_clock_data_point_view_model_numbers(data->data_point);
-  world_clock_view_model_fill_numbers(&data->view_model, numbers,
-                                      data->data_point);
-  text_layer_set_text(data->relative_info_layer,
-                      data->view_model.relative_info.text);
-}
-
 static void click_config_provider(void *context) {
   window_single_click_subscribe(BUTTON_ID_UP, up_click_handler);
   window_single_click_subscribe(BUTTON_ID_DOWN, down_click_handler);
-  window_long_click_subscribe(BUTTON_ID_SELECT, 500, select_long_click_handler,
-                              NULL);
 }
 
 static void init() {
-  load_dst_settings();
-
   WorldClockData *data = malloc(sizeof(WorldClockData));
   memset(data, 0, sizeof(WorldClockData));
 
@@ -715,7 +698,7 @@ static void init() {
                                               .load = main_window_load,
                                               .unload = main_window_unload,
                                           });
-  world_clock_messaging_init(prv_overlay_received, data);
+  world_clock_messaging_init(prv_overlay_received, prv_city_data_received, data);
 
   window_stack_push(s_main_window, true);
   update_status_bar_time();

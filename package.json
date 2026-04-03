@@ -32,7 +32,13 @@
       "overlay_total_rows",
       "overlay_row_start",
       "overlay_row_count",
-      "overlay_row_data"
+      "overlay_row_data",
+      "request_city_data",
+      "city_data_start",
+      "city_data_count",
+      "city_data_total",
+      "city_data",
+      "user_city_index"
     ],
     "resources": {
       "media": [
