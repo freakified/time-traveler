@@ -130,10 +130,6 @@ static void prv_world_map_recolor_night(GBitmap *bitmap) {
   }
 }
 
-static uint8_t prv_world_map_overlay_twilight_width(void) {
-  return PBL_IF_COLOR_ELSE(0, 0);
-}
-
 static int16_t prv_world_map_clamp_x(int16_t x, int16_t width) {
   if (x < 0) {
     return 0;
@@ -144,16 +140,6 @@ static int16_t prv_world_map_clamp_x(int16_t x, int16_t width) {
   return x;
 }
 
-static bool prv_world_map_should_draw_twilight_pixel(int16_t x, int16_t y,
-                                                     bool wrapped_segment) {
-  if (PBL_IF_COLOR_ELSE(true, false)) {
-    return true;
-  }
-
-  const int parity = (x + y + (wrapped_segment ? 1 : 0)) & 1;
-  return parity == 0;
-}
-
 static void prv_world_map_draw_segment(GContext *ctx, int16_t y,
                                        int16_t start_x, int16_t end_x,
                                        GColor color) {
@@ -161,38 +147,9 @@ static void prv_world_map_draw_segment(GContext *ctx, int16_t y,
     return;
   }
 
-  graphics_context_set_stroke_color(ctx, color);
-  graphics_draw_line(ctx, GPoint(start_x, y), GPoint(end_x, y));
-}
-
-static void prv_world_map_draw_twilight_band(GContext *ctx, int16_t y,
-                                             int16_t min_x, int16_t max_x,
-                                             int16_t x, bool wrapped_segment) {
-  if (x < min_x || x > max_x) {
-    return;
-  }
-
-  if (PBL_IF_COLOR_ELSE(true, false)) {
-    prv_world_map_draw_segment(ctx, y, x, x, COLOR_MAP_TWILIGHT);
-    return;
-  }
-
-  if (prv_world_map_should_draw_twilight_pixel(x, y, wrapped_segment)) {
-    prv_world_map_draw_segment(ctx, y, x, x, COLOR_MAP_TWILIGHT);
-  }
-}
-
-static void prv_world_map_draw_twilight_edges(GContext *ctx, int16_t y,
-                                              int16_t min_x, int16_t max_x,
-                                              int16_t start_x, int16_t end_x,
-                                              bool wrapped_segment) {
-  const uint8_t twilight_width = prv_world_map_overlay_twilight_width();
-  for (uint8_t offset = 0; offset < twilight_width; ++offset) {
-    prv_world_map_draw_twilight_band(ctx, y, min_x, max_x, start_x + offset,
-                                     wrapped_segment);
-    prv_world_map_draw_twilight_band(ctx, y, min_x, max_x, end_x - offset,
-                                     wrapped_segment);
-  }
+  graphics_context_set_fill_color(ctx, color);
+  graphics_fill_rect(ctx, GRect(start_x, y, end_x - start_x + 1, 1), 0,
+                     GCornerNone);
 }
 
 static void prv_world_map_draw_bitmap_segment(GContext *ctx,
@@ -283,14 +240,12 @@ static void bg_update_proc(Layer *layer, GContext *ctx) {
   int16_t y = (model->bg_color.to_bottom_normalized * bounds.size.h) /
               ANIMATION_NORMALIZED_MAX;
 
-  graphics_context_set_fill_color(
-      ctx, PBL_IF_COLOR_ELSE(model->bg_color.bottom, GColorBlack));
+  graphics_context_set_fill_color(ctx, model->bg_color.bottom);
   GRect rect_top = bounds;
   rect_top.size.h = y;
   graphics_fill_rect(ctx, rect_top, 0, GCornerNone);
 
-  graphics_context_set_fill_color(
-      ctx, PBL_IF_COLOR_ELSE(model->bg_color.top, GColorBlack));
+  graphics_context_set_fill_color(ctx, model->bg_color.top);
   GRect rect_bottom = bounds;
   rect_bottom.origin.y += y;
   graphics_fill_rect(ctx, rect_bottom, 0, GCornerNone);
@@ -336,7 +291,7 @@ bool world_clock_is_city_index_night(WorldClockData *data, int city_index) {
 
   const GRect map_rect = world_clock_calibrated_map_rect(data);
   GPoint city_pos = world_clock_lon_lat_to_screen(coords->longitude,
-                                                 coords->latitude, map_rect);
+                                                  coords->latitude, map_rect);
 
   // Convert city_pos (global screen) to map-relative row/column
   int16_t row = city_pos.y - map_rect.origin.y;
@@ -426,8 +381,9 @@ static void start_dot_animation(WorldClockData *data, int new_city_index) {
   if (!coords)
     return;
 
-  GPoint target_pos = world_clock_lon_lat_to_screen(coords->longitude, coords->latitude,
-                                        world_clock_calibrated_map_rect(data));
+  GPoint target_pos =
+      world_clock_lon_lat_to_screen(coords->longitude, coords->latitude,
+                                    world_clock_calibrated_map_rect(data));
 
   // Set animation state
   data->target_dot_position = target_pos;
@@ -487,20 +443,17 @@ static void prv_world_map_draw_overlay(WorldClockData *data, GContext *ctx,
       continue;
     }
 
-    if (PBL_IF_COLOR_ELSE(true, false)) {
-      if (day_start <= day_end) {
-        prv_world_map_draw_bitmap_segment(ctx, data->world_map_night_image,
-                                          map_rect, row, 0, day_start - 1);
-        prv_world_map_draw_bitmap_segment(ctx, data->world_map_night_image,
-                                          map_rect, row, day_end + 1,
-                                          width - 1);
-      } else {
-        prv_world_map_draw_bitmap_segment(ctx, data->world_map_night_image,
-                                          map_rect, row, day_end + 1,
-                                          day_start - 1);
-      }
-      continue;
+    if (day_start <= day_end) {
+      prv_world_map_draw_bitmap_segment(ctx, data->world_map_night_image,
+                                        map_rect, row, 0, day_start - 1);
+      prv_world_map_draw_bitmap_segment(ctx, data->world_map_night_image,
+                                        map_rect, row, day_end + 1, width - 1);
+    } else {
+      prv_world_map_draw_bitmap_segment(ctx, data->world_map_night_image,
+                                        map_rect, row, day_end + 1,
+                                        day_start - 1);
     }
+    continue;
 
     if (day_start <= day_end) {
       prv_world_map_draw_segment(ctx, y, map_rect.origin.x,
@@ -509,17 +462,10 @@ static void prv_world_map_draw_overlay(WorldClockData *data, GContext *ctx,
       prv_world_map_draw_segment(ctx, y, map_rect.origin.x + day_end + 1,
                                  map_rect.origin.x + width - 1,
                                  COLOR_MAP_NIGHT_OVERLAY);
-      prv_world_map_draw_twilight_edges(
-          ctx, y, map_rect.origin.x, map_rect.origin.x + width - 1,
-          map_rect.origin.x + day_start, map_rect.origin.x + day_end, false);
     } else {
       prv_world_map_draw_segment(ctx, y, map_rect.origin.x + day_end + 1,
                                  map_rect.origin.x + day_start - 1,
                                  COLOR_MAP_NIGHT_OVERLAY);
-      prv_world_map_draw_twilight_edges(
-          ctx, y, map_rect.origin.x, map_rect.origin.x + width - 1,
-          map_rect.origin.x + day_end + 1, map_rect.origin.x + day_start - 1,
-          true);
     }
   }
 }
@@ -565,8 +511,8 @@ static void map_update_proc(Layer *layer, GContext *ctx) {
     CityCoordinates *coords =
         world_clock_get_city_coordinates(current_city_index);
     if (coords) {
-      dot_position =
-          world_clock_lon_lat_to_screen(coords->longitude, coords->latitude, map_rect);
+      dot_position = world_clock_lon_lat_to_screen(coords->longitude,
+                                                   coords->latitude, map_rect);
       // Update current position for future animations
       data->current_dot_position = dot_position;
     } else {
@@ -1081,8 +1027,9 @@ static void main_window_load(Window *window) {
   CityCoordinates *coords =
       world_clock_get_city_coordinates(current_city_index);
   if (coords) {
-    data->current_dot_position = world_clock_lon_lat_to_screen(
-        coords->longitude, coords->latitude, world_clock_calibrated_map_rect(data));
+    data->current_dot_position =
+        world_clock_lon_lat_to_screen(coords->longitude, coords->latitude,
+                                      world_clock_calibrated_map_rect(data));
     data->target_dot_position = data->current_dot_position;
   }
 
