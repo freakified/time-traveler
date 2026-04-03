@@ -12,6 +12,7 @@ CityCoordinates *world_clock_get_city_coordinates(int city_index);
 static GRect calibrated_map_rect(const WorldClockData *data);
 
 #define DST_PERSIST_KEY 1
+#define OVERLAY_PERSIST_KEY 2
 
 static Window *s_main_window;
 
@@ -22,6 +23,15 @@ static Window *s_main_window;
 #define WORLD_MAP_COLOR_BACKGROUND_DARK GColorOxfordBlue
 #define WORLD_MAP_BOTTOM_TRIM 10
 #define WORLD_MAP_MAX_OVERLAY_ROWS 104
+
+typedef struct {
+  uint32_t version;
+  uint16_t map_width;
+  uint16_t map_height;
+  uint16_t total_rows;
+  uint8_t daylight_start[WORLD_MAP_MAX_OVERLAY_ROWS];
+  uint8_t daylight_end[WORLD_MAP_MAX_OVERLAY_ROWS];
+} OverlayBackup;
 #define WORLD_MAP_OVERLAY_FULL_NIGHT 255
 #define WORLD_MAP_OVERLAY_ROWS_BUFFER_SIZE 128
 #define WORLD_MAP_APP_MESSAGE_INBOX_SIZE 768
@@ -239,6 +249,50 @@ static void prv_world_map_reset_overlay(WorldClockData *data, uint32_t version,
   data->overlay_received_rows = 0;
   data->overlay_valid = false;
   memset(data->overlay_row_received, 0, sizeof(data->overlay_row_received));
+}
+
+static void prv_save_overlay(WorldClockData *data) {
+  if (!data || !data->overlay_valid) {
+    return;
+  }
+
+  OverlayBackup backup = {
+      .version = data->overlay_version,
+      .map_width = data->overlay_map_width,
+      .map_height = data->overlay_map_height,
+      .total_rows = data->overlay_expected_rows,
+  };
+  memcpy(backup.daylight_start, data->overlay_daylight_start,
+         sizeof(backup.daylight_start));
+  memcpy(backup.daylight_end, data->overlay_daylight_end,
+         sizeof(backup.daylight_end));
+
+  persist_write_data(OVERLAY_PERSIST_KEY, &backup, sizeof(backup));
+}
+
+static void prv_load_overlay(WorldClockData *data) {
+  if (!persist_exists(OVERLAY_PERSIST_KEY)) {
+    return;
+  }
+
+  OverlayBackup backup;
+  if (persist_read_data(OVERLAY_PERSIST_KEY, &backup, sizeof(backup)) !=
+      sizeof(backup)) {
+    return;
+  }
+
+  data->overlay_version = backup.version;
+  data->overlay_map_width = backup.map_width;
+  data->overlay_map_height = backup.map_height;
+  data->overlay_expected_rows = backup.total_rows;
+  data->overlay_received_rows = backup.total_rows;
+  data->overlay_valid = true;
+
+  memcpy(data->overlay_daylight_start, backup.daylight_start,
+         sizeof(data->overlay_daylight_start));
+  memcpy(data->overlay_daylight_end, backup.daylight_end,
+         sizeof(data->overlay_daylight_end));
+  memset(data->overlay_row_received, 1, sizeof(data->overlay_row_received));
 }
 
 ////////////////////
@@ -700,6 +754,7 @@ static void prv_inbox_received(DictionaryIterator *iter, void *context) {
 
   if (data->overlay_received_rows >= data->overlay_expected_rows) {
     data->overlay_valid = true;
+    prv_save_overlay(data);
     if (data->map_layer) {
       layer_mark_dirty(data->map_layer);
     }
@@ -1003,6 +1058,10 @@ static void main_window_load(Window *window) {
 
   // Position AM/PM layer correctly on startup
   update_ampm_position(data);
+
+  // Load cached overlay if available
+  prv_load_overlay(data);
+
   prv_request_overlay_update();
 }
 
