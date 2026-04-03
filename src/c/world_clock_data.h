@@ -4,7 +4,7 @@
 
 // Color definitions for easy customization
 #define COLOR_MAP_FOREGROUND PBL_IF_COLOR_ELSE(GColorWhite, GColorLightGray)
-#define COLOR_MAP_BACKGROUND PBL_IF_COLOR_ELSE(GColorPictonBlue, GColorBlack)
+#define COLOR_MAP_BACKGROUND PBL_IF_COLOR_ELSE(GColorPictonBlue, GColorWhite)
 #define COLOR_MAP_NIGHT_FOREGROUND                                             \
   PBL_IF_COLOR_ELSE(GColorLightGray, GColorLightGray)
 #define COLOR_MAP_NIGHT_BACKGROUND                                             \
@@ -17,7 +17,21 @@
 #define COLOR_TEXT_DEFAULT GColorBlack
 #define COLOR_RULER GColorBlack
 #define COLOR_STATUSBAR_TEXT GColorBlack
-#define COLOR_APP_BACKGROUND PBL_IF_COLOR_ELSE(GColorPictonBlue, GColorBlack)
+#define COLOR_APP_BACKGROUND PBL_IF_COLOR_ELSE(GColorPictonBlue, GColorWhite)
+
+// Night Palette Definitions
+#define COLOR_MAP_FOREGROUND_NIGHT                                             \
+  PBL_IF_COLOR_ELSE(GColorLightGray, GColorLightGray)
+#define COLOR_MAP_BACKGROUND_NIGHT                                             \
+  PBL_IF_COLOR_ELSE(GColorCobaltBlue, GColorBlack)
+#define COLOR_TEXT_DEFAULT_NIGHT PBL_IF_COLOR_ELSE(GColorWhite, GColorWhite)
+#define COLOR_CROSSHAIR_NIGHT PBL_IF_COLOR_ELSE(GColorWhite, GColorWhite)
+#define COLOR_DOT_FILL_NIGHT PBL_IF_COLOR_ELSE(GColorWhite, GColorWhite)
+#define COLOR_DOT_OUTLINE_NIGHT PBL_IF_COLOR_ELSE(GColorBlack, GColorBlack)
+#define COLOR_STATUSBAR_TEXT_NIGHT GColorWhite
+#define COLOR_RULER_NIGHT GColorWhite
+#define COLOR_APP_BACKGROUND_NIGHT                                             \
+  PBL_IF_COLOR_ELSE(GColorCobaltBlue, GColorBlack)
 
 struct WorldClockMainWindowViewModel;
 
@@ -47,6 +61,13 @@ typedef struct {
     char text[25]; // "TODAY, +3 HRS DST" or "YESTERDAY, -5 HRS DST"
   } relative_info;
   int16_t current_offset; // current offset for animation
+  bool is_night;
+  GColor text_color;
+  GColor crosshair_color;
+  GColor dot_fill_color;
+  GColor dot_outline_color;
+  GColor statusbar_text_color;
+  GColor ruler_color;
 } WorldClockMainWindowViewModel;
 
 //! calls model's .announce_changed or does nothing if NULL
@@ -90,15 +111,20 @@ void world_clock_view_model_fill_all(WorldClockMainWindowViewModel *model,
 void world_clock_view_model_fill_colors(WorldClockMainWindowViewModel *model,
                                         GColor color);
 
+void world_clock_view_model_fill_night_mode(
+    WorldClockMainWindowViewModel *model, bool is_night);
+
 void world_clock_view_model_deinit(WorldClockMainWindowViewModel *model);
 
-GColor world_clock_data_point_color(WorldClockDataPoint *data_point);
+GColor world_clock_data_point_color(WorldClockDataPoint *data_point,
+                                    bool is_night);
 
 int world_clock_num_data_points(void);
 
 WorldClockDataPoint *world_clock_data_point_at(int idx);
 WorldClockDataPoint *world_clock_data_point_delta(WorldClockDataPoint *dp,
                                                   int delta);
+int world_clock_index_of_data_point(WorldClockDataPoint *dp);
 
 // City coordinates for map display
 typedef struct {

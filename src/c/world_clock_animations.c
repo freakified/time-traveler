@@ -85,9 +85,12 @@ static const PropertyAnimationImplementation s_bg_color_normalized_implementatio
 
 static void bg_colors_animation_started(Animation *animation, void *context) {
   WorldClockMainWindowViewModel *view_model = view_model_from_animation(animation);
+  WorldClockData *data = (WorldClockData *)((char *)view_model - 4);
 
   WorldClockDataPoint *dp = context;
-  GColor color = world_clock_data_point_color(dp);
+  int city_index = world_clock_index_of_data_point(dp);
+  bool is_night = world_clock_is_city_index_night(data, city_index);
+  GColor color = world_clock_data_point_color(dp, is_night);
 
   // before, .top and .bottom are set to the current color, see world_clock_view_model_fill_colors()
   if (animation_get_reverse(animation)) {
@@ -101,9 +104,12 @@ static void bg_colors_animation_started(Animation *animation, void *context) {
 
 static void bg_colors_animation_stopped(Animation *animation, bool finished, void *context) {
   WorldClockMainWindowViewModel *view_model = view_model_from_animation(animation);
+  WorldClockData *data = (WorldClockData *)((char *)view_model - 4);
 
   WorldClockDataPoint *dp = context;
-  GColor color = world_clock_data_point_color(dp);
+  int city_index = world_clock_index_of_data_point(dp);
+  bool is_night = world_clock_is_city_index_night(data, city_index);
+  GColor color = world_clock_data_point_color(dp, is_night);
 
   world_clock_view_model_fill_colors(view_model, color);
 }

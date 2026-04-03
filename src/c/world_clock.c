@@ -10,6 +10,7 @@
 int world_clock_index_of_data_point(WorldClockDataPoint *dp);
 CityCoordinates *world_clock_get_city_coordinates(int city_index);
 static GRect calibrated_map_rect(const WorldClockData *data);
+static void prv_update_night_mode(WorldClockData *data);
 
 #define DST_PERSIST_KEY 1
 #define OVERLAY_PERSIST_KEY 2
@@ -83,11 +84,12 @@ static GColor prv_world_map_palette_color_for_luminance(uint8_t luminance,
 }
 
 static void prv_world_map_recolor(GBitmap *bitmap) {
-  const GColor background = COLOR_MAP_BACKGROUND;
-  const GColor foreground = COLOR_MAP_FOREGROUND;
   if (!bitmap) {
     return;
   }
+
+  const GColor background = COLOR_MAP_BACKGROUND;
+  const GColor foreground = COLOR_MAP_FOREGROUND;
 
   GColor *palette = gbitmap_get_palette(bitmap);
   if (!palette) {
@@ -295,8 +297,8 @@ static void bg_update_proc(Layer *layer, GContext *ctx) {
 }
 
 // Convert longitude/latitude to screen coordinates for the map
-static GPoint lon_lat_to_screen(float longitude, float latitude,
-                                const GRect map_bounds) {
+GPoint world_clock_lon_lat_to_screen(float longitude, float latitude,
+                                     const GRect map_bounds) {
   if (map_bounds.size.w <= 0 || map_bounds.size.h <= 0) {
     return GPointZero;
   }
@@ -322,7 +324,55 @@ static GPoint lon_lat_to_screen(float longitude, float latitude,
   return GPoint(x, y);
 }
 
-static GRect calibrated_map_rect(const WorldClockData *data) {
+bool world_clock_is_city_index_night(WorldClockData *data, int city_index) {
+  if (!data->overlay_valid || data->overlay_expected_rows == 0) {
+    return false;
+  }
+
+  CityCoordinates *coords = world_clock_get_city_coordinates(city_index);
+  if (!coords) {
+    return false;
+  }
+
+  const GRect map_rect = world_clock_calibrated_map_rect(data);
+  GPoint city_pos = world_clock_lon_lat_to_screen(coords->longitude,
+                                                 coords->latitude, map_rect);
+
+  // Convert city_pos (global screen) to map-relative row/column
+  int16_t row = city_pos.y - map_rect.origin.y;
+  int16_t col = city_pos.x - map_rect.origin.x;
+
+  if (row < 0 || row >= (int16_t)data->overlay_expected_rows) {
+    return false;
+  }
+
+  uint8_t day_start = data->overlay_daylight_start[row];
+  uint8_t day_end = data->overlay_daylight_end[row];
+
+  if (day_start == WORLD_MAP_OVERLAY_FULL_NIGHT &&
+      day_end == WORLD_MAP_OVERLAY_FULL_NIGHT) {
+    return true;
+  }
+
+  if (day_start == 0 && day_end == map_rect.size.w - 1) {
+    return false;
+  }
+
+  if (day_start <= day_end) {
+    // Night is typically 0..day_start-1 AND day_end+1..width-1
+    return (col < day_start || col > day_end);
+  } else {
+    // Night is day_end+1..day_start-1
+    return (col > day_end && col < day_start);
+  }
+}
+
+static bool prv_is_current_city_night(WorldClockData *data) {
+  int current_city_index = world_clock_index_of_data_point(data->data_point);
+  return world_clock_is_city_index_night(data, current_city_index);
+}
+
+GRect world_clock_calibrated_map_rect(const WorldClockData *data) {
   GRect rect = data->world_map_draw_rect;
   if (rect.size.h > WORLD_MAP_BOTTOM_TRIM) {
     rect.size.h -= WORLD_MAP_BOTTOM_TRIM;
@@ -376,8 +426,8 @@ static void start_dot_animation(WorldClockData *data, int new_city_index) {
   if (!coords)
     return;
 
-  GPoint target_pos = lon_lat_to_screen(coords->longitude, coords->latitude,
-                                        calibrated_map_rect(data));
+  GPoint target_pos = world_clock_lon_lat_to_screen(coords->longitude, coords->latitude,
+                                        world_clock_calibrated_map_rect(data));
 
   // Set animation state
   data->target_dot_position = target_pos;
@@ -477,7 +527,7 @@ static void prv_world_map_draw_overlay(WorldClockData *data, GContext *ctx,
 static void map_update_proc(Layer *layer, GContext *ctx) {
   WorldClockData *data = window_get_user_data(s_main_window);
   const GRect bounds = layer_get_bounds(layer);
-  const GRect map_rect = calibrated_map_rect(data);
+  const GRect map_rect = world_clock_calibrated_map_rect(data);
 
   graphics_context_set_fill_color(ctx, COLOR_MAP_BACKGROUND);
   graphics_fill_rect(ctx, bounds, 0, GCornerNone);
@@ -516,7 +566,7 @@ static void map_update_proc(Layer *layer, GContext *ctx) {
         world_clock_get_city_coordinates(current_city_index);
     if (coords) {
       dot_position =
-          lon_lat_to_screen(coords->longitude, coords->latitude, map_rect);
+          world_clock_lon_lat_to_screen(coords->longitude, coords->latitude, map_rect);
       // Update current position for future animations
       data->current_dot_position = dot_position;
     } else {
@@ -526,7 +576,7 @@ static void map_update_proc(Layer *layer, GContext *ctx) {
   }
 
   // Draw crosshair lines.
-  graphics_context_set_stroke_color(ctx, COLOR_CROSSHAIR);
+  graphics_context_set_stroke_color(ctx, data->view_model.crosshair_color);
 
   // Horizontal line across the entire width
   graphics_draw_line(ctx, GPoint(0, dot_position.y),
@@ -537,21 +587,22 @@ static void map_update_proc(Layer *layer, GContext *ctx) {
                      GPoint(dot_position.x, bounds.size.h));
 
   // Draw single animated dot
-  graphics_context_set_fill_color(ctx, COLOR_DOT_FILL);
+  graphics_context_set_fill_color(ctx, data->view_model.dot_fill_color);
   graphics_fill_circle(ctx, dot_position, 4);
 
   // Draw border for better visibility
-  graphics_context_set_stroke_color(ctx, COLOR_DOT_OUTLINE);
+  graphics_context_set_stroke_color(ctx, data->view_model.dot_outline_color);
   graphics_draw_circle(ctx, dot_position, 4);
 }
 
 static void horizontal_ruler_update_proc(Layer *layer, GContext *ctx) {
+  WorldClockData *data = window_get_user_data(s_main_window);
   const GRect bounds = layer_get_bounds(layer);
   // y relative to layer's bounds to support clipping after some vertical
   // scrolling
   const int16_t yy = 11;
 
-  graphics_context_set_stroke_color(ctx, COLOR_RULER);
+  graphics_context_set_stroke_color(ctx, data->view_model.ruler_color);
   graphics_draw_line(ctx, GPoint(0, yy), GPoint(bounds.size.w, yy));
 }
 
@@ -636,7 +687,7 @@ static void prv_request_overlay_update(void) {
     return;
   }
 
-  const GRect map_rect = calibrated_map_rect(data);
+  const GRect map_rect = world_clock_calibrated_map_rect(data);
   if (map_rect.size.w <= 0 || map_rect.size.h <= 0) {
     return;
   }
@@ -724,6 +775,7 @@ static void prv_inbox_received(DictionaryIterator *iter, void *context) {
     data->overlay_valid = true;
     prv_save_overlay(data);
     if (data->map_layer) {
+      prv_update_night_mode(data);
       layer_mark_dirty(data->map_layer);
     }
   }
@@ -889,6 +941,13 @@ static void update_ampm_position(WorldClockData *data) {
   }
 }
 
+static void prv_update_night_mode(WorldClockData *data) {
+  bool is_night = prv_is_current_city_night(data);
+  if (is_night != data->view_model.is_night) {
+    world_clock_view_model_fill_night_mode(&data->view_model, is_night);
+  }
+}
+
 static void view_model_changed(struct WorldClockMainWindowViewModel *arg) {
   WorldClockMainWindowViewModel *model = (WorldClockMainWindowViewModel *)arg;
 
@@ -899,6 +958,15 @@ static void view_model_changed(struct WorldClockMainWindowViewModel *arg) {
   text_layer_set_text(data->ampm_layer, model->time.ampm);
   text_layer_set_text(data->relative_info_layer, model->relative_info.text);
   text_layer_set_text(data->pagination_layer, model->pagination.text);
+
+  // Apply colors
+  text_layer_set_text_color(data->city_layer, model->text_color);
+  text_layer_set_text_color(data->time_layer, model->text_color);
+  text_layer_set_text_color(data->ampm_layer, model->text_color);
+  text_layer_set_text_color(data->relative_info_layer, model->text_color);
+  text_layer_set_text_color(data->fake_statusbar, model->statusbar_text_color);
+  text_layer_set_text_color(data->pagination_layer,
+                            model->statusbar_text_color);
 
   // Update AM/PM position based on time text width
   update_ampm_position(data);
@@ -1013,8 +1081,8 @@ static void main_window_load(Window *window) {
   CityCoordinates *coords =
       world_clock_get_city_coordinates(current_city_index);
   if (coords) {
-    data->current_dot_position = lon_lat_to_screen(
-        coords->longitude, coords->latitude, calibrated_map_rect(data));
+    data->current_dot_position = world_clock_lon_lat_to_screen(
+        coords->longitude, coords->latitude, world_clock_calibrated_map_rect(data));
     data->target_dot_position = data->current_dot_position;
   }
 
@@ -1026,6 +1094,8 @@ static void main_window_load(Window *window) {
 
   // Load cached overlay if available
   prv_load_overlay(data);
+
+  prv_update_night_mode(data);
 
   prv_request_overlay_update();
 }
@@ -1176,6 +1246,9 @@ static void ask_for_scroll(WorldClockData *data, ScrollDirection direction) {
 
     // data point switches immediately
     data->data_point = next_data_point;
+
+    // Update night mode for the new city immediately so animations use it
+    prv_update_night_mode(data);
 
     // Start dot animation to new city
     start_dot_animation(data, next_city_index);

@@ -34,3 +34,8 @@ typedef struct {
   uint8_t overlay_daylight_end[104];
   bool overlay_row_received[104];
 } WorldClockData;
+
+bool world_clock_is_city_index_night(WorldClockData *data, int city_index);
+GPoint world_clock_lon_lat_to_screen(float longitude, float latitude,
+                                     const GRect map_bounds);
+GRect world_clock_calibrated_map_rect(const WorldClockData *data);

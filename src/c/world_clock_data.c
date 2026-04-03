@@ -127,8 +127,9 @@ void world_clock_view_model_fill_colors(WorldClockMainWindowViewModel *model, GC
   world_clock_main_window_view_model_announce_changed(model);
 }
 
-GColor world_clock_data_point_color(WorldClockDataPoint *data_point) {
-  return COLOR_APP_BACKGROUND;
+GColor world_clock_data_point_color(WorldClockDataPoint *data_point,
+                                   bool is_night) {
+  return is_night ? COLOR_APP_BACKGROUND_NIGHT : COLOR_APP_BACKGROUND;
 }
 
 void world_clock_view_model_fill_all(WorldClockMainWindowViewModel *model, WorldClockDataPoint *data_point) {
@@ -136,10 +137,34 @@ void world_clock_view_model_fill_all(WorldClockMainWindowViewModel *model, World
   memset(model, 0, sizeof(*model));
   model->announce_changed = annouce_changed;
   world_clock_view_model_fill_strings_and_pagination(model, data_point);
-  world_clock_view_model_fill_colors(model, world_clock_data_point_color(data_point));
+  world_clock_view_model_fill_colors(model, world_clock_data_point_color(data_point, false));
+  world_clock_view_model_fill_night_mode(model, false); // Default to Day
   world_clock_view_model_fill_numbers(model, world_clock_data_point_view_model_numbers(data_point), data_point);
 
   world_clock_main_window_view_model_announce_changed(model);
+}
+
+void world_clock_view_model_fill_night_mode(WorldClockMainWindowViewModel *model, bool is_night) {
+  model->is_night = is_night;
+  if (is_night) {
+    model->text_color = COLOR_TEXT_DEFAULT_NIGHT;
+    model->crosshair_color = COLOR_CROSSHAIR_NIGHT;
+    model->dot_fill_color = COLOR_DOT_FILL_NIGHT;
+    model->dot_outline_color = COLOR_DOT_OUTLINE_NIGHT;
+    model->statusbar_text_color = COLOR_STATUSBAR_TEXT_NIGHT;
+    model->ruler_color = COLOR_RULER_NIGHT;
+    model->bg_color.top = COLOR_APP_BACKGROUND_NIGHT;
+    model->bg_color.bottom = COLOR_APP_BACKGROUND_NIGHT;
+  } else {
+    model->text_color = COLOR_TEXT_DEFAULT;
+    model->crosshair_color = COLOR_CROSSHAIR;
+    model->dot_fill_color = COLOR_DOT_FILL;
+    model->dot_outline_color = COLOR_DOT_OUTLINE;
+    model->statusbar_text_color = COLOR_STATUSBAR_TEXT;
+    model->ruler_color = COLOR_RULER;
+    model->bg_color.top = COLOR_APP_BACKGROUND;
+    model->bg_color.bottom = COLOR_APP_BACKGROUND;
+  }
 }
 
 void world_clock_view_model_deinit(WorldClockMainWindowViewModel *model) {
