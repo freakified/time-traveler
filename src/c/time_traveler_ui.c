@@ -170,7 +170,7 @@ void init_statusbar_text_layer(Layer *parent, TextLayer **layer) {
       GTextAlignmentCenter);
   const int16_t text_height =
       text_size.h > 0 ? text_size.h : STATUS_BAR_LAYER_HEIGHT;
-  const int16_t status_y = ((STATUS_BAR_LAYER_HEIGHT - text_height) / 2) - 1;
+  const int16_t status_y = ((STATUS_BAR_LAYER_HEIGHT - text_height) / 2) + LAYOUT_STATUSBAR_Y_COMPENSATION;
   const GRect frame =
       GRect(status_margin, status_y, status_bounds.size.w, text_height);
 

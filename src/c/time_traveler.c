@@ -82,7 +82,7 @@ static void prv_city_data_received(const uint8_t *blob, uint16_t length,
       layer_mark_dirty(data->gps_arrow_layer);
     } else if (PBL_IF_ROUND_ELSE(true, false)) {
       GRect city_frame = layer_get_frame(text_layer_get_layer(data->city_layer));
-      const int16_t current_margin = LAYOUT_ROUND_CITY_MARGIN_RESTORE;
+      const int16_t current_margin = LAYOUT_BASE_MARGIN;
       GRect restored_frame = GRect(current_margin + LAYOUT_ROUND_CITY_FRAME_ADJUST, city_frame.origin.y,
                                    city_frame.size.w, city_frame.size.h);
       layer_set_frame(text_layer_get_layer(data->city_layer), restored_frame);

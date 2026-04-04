@@ -1,18 +1,19 @@
 #include "time_traveler_main_window.h"
-#include "time_traveler_scroll.h"
 #include "metrics.h"
 #include "time_traveler_animations.h"
 #include "time_traveler_data.h"
 #include "time_traveler_messaging.h"
 #include "time_traveler_overlay.h"
+#include "time_traveler_scroll.h"
 #include "time_traveler_ui.h"
 #include <pebble.h>
 #include <string.h>
 
 #define MARGIN LAYOUT_MARGIN
 #define WORLD_MAP_BOTTOM_TRIM LAYOUT_WORLD_MAP_BOTTOM_TRIM
-#define OVERLAY_TOP_TRIM 3
-#define OVERLAY_BOTTOM_TRIM 3
+#define WORLD_MAP_CROP LAYOUT_WORLD_MAP_CROP
+#define OVERLAY_TOP_TRIM 0
+#define OVERLAY_BOTTOM_TRIM 0
 
 #define GPS_ARROW_WIDTH (LAYOUT_GPS_ARROW_WIDTH)
 #define GPS_ARROW_HEIGHT (LAYOUT_GPS_ARROW_HEIGHT)
@@ -21,9 +22,7 @@
 
 Window *s_main_window;
 
-Window *time_traveler_main_window_get(void) {
-  return s_main_window;
-}
+Window *time_traveler_main_window_get(void) { return s_main_window; }
 
 static GPoint interpolate_points(GPoint start, GPoint end, int32_t progress,
                                  int32_t max_progress) {
@@ -55,14 +54,15 @@ static void dot_animation_stopped(Animation *animation, bool finished,
   layer_mark_dirty(data->map_layer);
 }
 
-void time_traveler_main_window_start_dot_animation(WorldClockData *data, int new_city_index) {
+void time_traveler_main_window_start_dot_animation(WorldClockData *data,
+                                                   int new_city_index) {
   CityCoordinates *coords = time_traveler_get_city_coordinates(new_city_index);
   if (!coords)
     return;
 
   GPoint target_pos =
       time_traveler_lon_lat_to_screen(coords->longitude, coords->latitude,
-                                    time_traveler_calibrated_map_rect(data));
+                                      time_traveler_calibrated_map_rect(data));
 
   data->target_dot_position = target_pos;
   data->dot_animation_active = true;
@@ -83,7 +83,7 @@ void time_traveler_main_window_start_dot_animation(WorldClockData *data, int new
 }
 
 GPoint time_traveler_lon_lat_to_screen(float longitude, float latitude,
-                                     const GRect map_bounds) {
+                                       const GRect map_bounds) {
   if (map_bounds.size.w <= 0 || map_bounds.size.h <= 0) {
     return GPointZero;
   }
@@ -113,13 +113,13 @@ bool time_traveler_is_city_index_night(WorldClockData *data, int city_index) {
 
   const GRect map_rect = time_traveler_calibrated_map_rect(data);
   GPoint city_pos = time_traveler_lon_lat_to_screen(coords->longitude,
-                                                  coords->latitude, map_rect);
+                                                    coords->latitude, map_rect);
 
   int16_t row = city_pos.y - map_rect.origin.y;
   int16_t col = city_pos.x - map_rect.origin.x;
 
-  return time_traveler_overlay_is_city_night(&data->overlay, map_rect.size.w, row,
-                                           col);
+  return time_traveler_overlay_is_city_night(&data->overlay, map_rect.size.w,
+                                             row, col);
 }
 
 static bool prv_is_current_city_night(WorldClockData *data) {
@@ -152,7 +152,7 @@ static void prv_world_map_draw_overlay(WorldClockData *data, GContext *ctx,
   for (int16_t row = row_start; row < row_end; ++row) {
     uint8_t day_start_value, day_end_value;
     if (!time_traveler_overlay_query_row(&data->overlay, row, &day_start_value,
-                                       &day_end_value)) {
+                                         &day_end_value)) {
       continue;
     }
 
@@ -162,7 +162,7 @@ static void prv_world_map_draw_overlay(WorldClockData *data, GContext *ctx,
     if (day_start_value == time_traveler_OVERLAY_FULL_NIGHT &&
         day_end_value == time_traveler_OVERLAY_FULL_NIGHT) {
       time_traveler_ui_draw_bitmap_segment(ctx, data->world_map_night_image,
-                                        map_rect, row, 0, width - 1);
+                                           map_rect, row, 0, width - 1);
       continue;
     }
 
@@ -172,13 +172,14 @@ static void prv_world_map_draw_overlay(WorldClockData *data, GContext *ctx,
 
     if (day_start <= day_end) {
       time_traveler_ui_draw_bitmap_segment(ctx, data->world_map_night_image,
-                                         map_rect, row, 0, day_start - 1);
+                                           map_rect, row, 0, day_start - 1);
       time_traveler_ui_draw_bitmap_segment(ctx, data->world_map_night_image,
-                                         map_rect, row, day_end + 1, width - 1);
+                                           map_rect, row, day_end + 1,
+                                           width - 1);
     } else {
       time_traveler_ui_draw_bitmap_segment(ctx, data->world_map_night_image,
-                                         map_rect, row, day_end + 1,
-                                         day_start - 1);
+                                           map_rect, row, day_end + 1,
+                                           day_start - 1);
     }
   }
 }
@@ -234,12 +235,13 @@ static void map_update_proc(Layer *layer, GContext *ctx) {
         data->current_dot_position, data->target_dot_position,
         data->dot_animation_progress, ANIMATION_NORMALIZED_MAX);
   } else {
-    int current_city_index = time_traveler_index_of_data_point(data->data_point);
+    int current_city_index =
+        time_traveler_index_of_data_point(data->data_point);
     CityCoordinates *coords =
         time_traveler_get_city_coordinates(current_city_index);
     if (coords) {
-      dot_position = time_traveler_lon_lat_to_screen(coords->longitude,
-                                                   coords->latitude, map_rect);
+      dot_position = time_traveler_lon_lat_to_screen(
+          coords->longitude, coords->latitude, map_rect);
       data->current_dot_position = dot_position;
     } else {
       dot_position = GPoint(bounds.size.w / 2, bounds.size.h / 2);
@@ -269,13 +271,16 @@ static void horizontal_ruler_update_proc(Layer *layer, GContext *ctx) {
 }
 
 static void gps_arrow_update_proc(Layer *layer, GContext *ctx) {
-  GDrawCommandImage *command_image = gdraw_command_image_create_with_resource(RESOURCE_ID_GPS_ARROW);
-  if (!command_image) return;
+  GDrawCommandImage *command_image =
+      gdraw_command_image_create_with_resource(RESOURCE_ID_GPS_ARROW);
+  if (!command_image)
+    return;
 
   WorldClockData *data = window_get_user_data(s_main_window);
   GColor color = data ? data->view_model.text_color : GColorBlack;
 
-  GDrawCommandList *command_list = gdraw_command_image_get_command_list(command_image);
+  GDrawCommandList *command_list =
+      gdraw_command_image_get_command_list(command_image);
   uint32_t num_commands = gdraw_command_list_get_num_commands(command_list);
   for (uint32_t i = 0; i < num_commands; i++) {
     GDrawCommand *cmd = gdraw_command_list_get_command(command_list, i);
@@ -303,16 +308,20 @@ static void update_ampm_position(WorldClockData *data) {
         GRect(0, 0, LAYOUT_AMPM_LAYER_WIDTH, LAYOUT_AMPM_LAYER_HEIGHT),
         GTextOverflowModeTrailingEllipsis, GTextAlignmentLeft);
 
-    const int16_t screen_width = layer_get_bounds(window_get_root_layer(s_main_window)).size.w;
-    const int16_t combined_width = time_content_size.w + LAYOUT_AMPM_X_OFFSET + ampm_content_size.w;
+    const int16_t screen_width =
+        layer_get_bounds(window_get_root_layer(s_main_window)).size.w;
+    const int16_t combined_width =
+        time_content_size.w + LAYOUT_AMPM_X_OFFSET + ampm_content_size.w;
     const int16_t group_x = (screen_width - combined_width) / 2;
 
-    GRect new_time_bounds = GRect(group_x, time_bounds.origin.y, combined_width, time_bounds.size.h);
+    GRect new_time_bounds = GRect(group_x, time_bounds.origin.y, combined_width,
+                                  time_bounds.size.h);
     layer_set_frame(text_layer_get_layer(data->time_layer), new_time_bounds);
     text_layer_set_text_alignment(data->time_layer, GTextAlignmentLeft);
 
     int16_t ampm_x = group_x + time_content_size.w + LAYOUT_AMPM_X_OFFSET;
-    int16_t ampm_y = time_bounds.origin.y + time_content_size.h - ampm_content_size.h;
+    int16_t ampm_y =
+        time_bounds.origin.y + time_content_size.h - ampm_content_size.h;
 
     layer_set_frame(
         text_layer_get_layer(data->ampm_layer),
@@ -355,12 +364,14 @@ static void view_model_changed(struct WorldClockMainWindowViewModel *arg) {
   layer_mark_dirty(text_layer_get_layer(data->relative_info_layer));
 }
 
-void time_traveler_main_window_force_view_model_change(struct WorldClockMainWindowViewModel *arg) {
+void time_traveler_main_window_force_view_model_change(
+    struct WorldClockMainWindowViewModel *arg) {
   view_model_changed(arg);
 }
 
 void time_traveler_main_window_update_status_bar_time(void) {
-  if (!s_main_window) return;
+  if (!s_main_window)
+    return;
   WorldClockData *data = window_get_user_data(s_main_window);
 
   time_t now = time(NULL);
@@ -409,12 +420,14 @@ static void main_window_load(Window *window) {
     if (map_height > WORLD_MAP_BOTTOM_TRIM) {
       map_height -= WORLD_MAP_BOTTOM_TRIM;
     }
-    data->world_map_draw_rect = GRect((map_width - image_bounds.size.w) / 2, 0,
-                                      image_bounds.size.w, image_bounds.size.h);
+    map_height -= 2 * WORLD_MAP_CROP;
+    data->world_map_draw_rect = GRect((map_width - image_bounds.size.w) / 2,
+                                      -WORLD_MAP_CROP, image_bounds.size.w,
+                                      image_bounds.size.h);
   }
 
-  data->map_layer =
-      layer_create(GRect(map_margin, WORLD_MAP_TOP, map_width, map_height));
+  data->map_layer = layer_create(
+      GRect(map_margin, WORLD_MAP_TOP + WORLD_MAP_CROP, map_width, map_height));
   layer_set_update_proc(data->map_layer, map_update_proc);
   layer_add_child(window_layer, data->map_layer);
 
@@ -428,14 +441,15 @@ static void main_window_load(Window *window) {
   const int16_t time_y = map_bottom + LAYOUT_TIME_Y_OFFSET;
   const int16_t relative_info_y = map_bottom + LAYOUT_RELATIVE_INFO_Y_OFFSET;
 
-  data->horizontal_ruler_layer = layer_create(
-      GRect(base_margin, ruler_y, screen_width - 2 * base_margin, LAYOUT_RULER_LAYER_HEIGHT));
+  data->horizontal_ruler_layer =
+      layer_create(GRect(base_margin, ruler_y, screen_width - 2 * base_margin,
+                         LAYOUT_RULER_LAYER_HEIGHT));
   layer_set_update_proc(data->horizontal_ruler_layer,
                         horizontal_ruler_update_proc);
   layer_add_child(window_layer, data->horizontal_ruler_layer);
 
-  init_text_layer(window_layer, &data->city_layer, city_y, LAYOUT_CITY_LAYER_HEIGHT, 0,
-                  LAYOUT_FONT_CITY);
+  init_text_layer(window_layer, &data->city_layer, city_y,
+                  LAYOUT_CITY_LAYER_HEIGHT, 0, LAYOUT_FONT_CITY);
 
   GRect city_frame = layer_get_frame(text_layer_get_layer(data->city_layer));
   const int16_t city_font_height = LAYOUT_CITY_FONT_HEIGHT;
@@ -448,22 +462,23 @@ static void main_window_load(Window *window) {
   layer_set_hidden(data->gps_arrow_layer, true);
 
   const int16_t time_top = time_y;
-  init_text_layer(window_layer, &data->time_layer, time_top, LAYOUT_TIME_LAYER_HEIGHT, 0,
-                  LAYOUT_FONT_TIME);
+  init_text_layer(window_layer, &data->time_layer, time_top,
+                  LAYOUT_TIME_LAYER_HEIGHT, 0, LAYOUT_FONT_TIME);
 
   const int16_t ampm_y = time_top;
-  GRect ampm_frame = GRect(base_margin, ampm_y, LAYOUT_AMPM_LAYER_WIDTH, LAYOUT_AMPM_LAYER_HEIGHT);
+  GRect ampm_frame = GRect(base_margin, ampm_y, LAYOUT_AMPM_LAYER_WIDTH,
+                           LAYOUT_AMPM_LAYER_HEIGHT);
   data->ampm_layer = text_layer_create(ampm_frame);
   text_layer_set_background_color(data->ampm_layer, GColorClear);
   text_layer_set_text_color(data->ampm_layer, COLOR_TEXT_DEFAULT);
-  text_layer_set_font(
-      data->ampm_layer,
-      fonts_get_system_font(LAYOUT_FONT_AMPM));
+  text_layer_set_font(data->ampm_layer,
+                      fonts_get_system_font(LAYOUT_FONT_AMPM));
   text_layer_set_text_alignment(data->ampm_layer, GTextAlignmentLeft);
   layer_add_child(window_layer, text_layer_get_layer(data->ampm_layer));
 
-  init_text_layer(window_layer, &data->relative_info_layer, relative_info_y, LAYOUT_RELATIVE_INFO_LAYER_HEIGHT,
-                  0, LAYOUT_FONT_RELATIVE_INFO);
+  init_text_layer(window_layer, &data->relative_info_layer, relative_info_y,
+                  LAYOUT_RELATIVE_INFO_LAYER_HEIGHT, 0,
+                  LAYOUT_FONT_RELATIVE_INFO);
 
   init_statusbar_text_layer(window_layer, &data->fake_statusbar);
 
@@ -477,9 +492,9 @@ static void main_window_load(Window *window) {
   CityCoordinates *coords =
       time_traveler_get_city_coordinates(current_city_index);
   if (coords) {
-    data->current_dot_position =
-        time_traveler_lon_lat_to_screen(coords->longitude, coords->latitude,
-                                      time_traveler_calibrated_map_rect(data));
+    data->current_dot_position = time_traveler_lon_lat_to_screen(
+        coords->longitude, coords->latitude,
+        time_traveler_calibrated_map_rect(data));
     data->target_dot_position = data->current_dot_position;
   } else {
     data->current_dot_position = GPoint(bounds.size.w / 2, bounds.size.h / 2);
@@ -491,7 +506,8 @@ static void main_window_load(Window *window) {
   update_ampm_position(data);
 
   const GRect map_rect = time_traveler_calibrated_map_rect(data);
-  time_traveler_overlay_update(&data->overlay, map_rect.size.w, map_rect.size.h);
+  time_traveler_overlay_update(&data->overlay, map_rect.size.w,
+                               map_rect.size.h);
   layer_mark_dirty(data->map_layer);
 
   if (data->data_point) {
@@ -519,8 +535,10 @@ static void main_window_unload(Window *window) {
 }
 
 static void click_config_provider(void *context) {
-  window_single_click_subscribe(BUTTON_ID_UP, time_traveler_scroll_up_click_handler);
-  window_single_click_subscribe(BUTTON_ID_DOWN, time_traveler_scroll_down_click_handler);
+  window_single_click_subscribe(BUTTON_ID_UP,
+                                time_traveler_scroll_up_click_handler);
+  window_single_click_subscribe(BUTTON_ID_DOWN,
+                                time_traveler_scroll_down_click_handler);
 }
 
 void time_traveler_main_window_push(WorldClockData *data) {
@@ -530,9 +548,9 @@ void time_traveler_main_window_push(WorldClockData *data) {
                                                   click_config_provider, data);
     window_set_user_data(s_main_window, data);
     window_set_window_handlers(s_main_window, (WindowHandlers){
-                                                .load = main_window_load,
-                                                .unload = main_window_unload,
-                                            });
+                                                  .load = main_window_load,
+                                                  .unload = main_window_unload,
+                                              });
   }
   window_stack_push(s_main_window, true);
   time_traveler_main_window_update_status_bar_time();
