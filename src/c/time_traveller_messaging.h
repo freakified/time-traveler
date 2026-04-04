@@ -2,8 +2,8 @@
 
 #include <pebble.h>
 
-#define WORLD_CLOCK_MESSAGING_INBOX_SIZE 768
-#define WORLD_CLOCK_MESSAGING_OUTBOX_SIZE 64
+#define time_traveller_MESSAGING_INBOX_SIZE 768
+#define time_traveller_MESSAGING_OUTBOX_SIZE 64
 
 typedef void (*WorldClockMessageOverlayCallback)(uint16_t map_width,
                                                  uint16_t map_height,
@@ -20,13 +20,13 @@ typedef void (*WorldClockMessageCityDataCallback)(const uint8_t *blob,
                                                   int8_t user_city_index,
                                                   void *context);
 
-void world_clock_messaging_init(WorldClockMessageOverlayCallback on_overlay_received,
+void time_traveller_messaging_init(WorldClockMessageOverlayCallback on_overlay_received,
                                 WorldClockMessageCityDataCallback on_city_data_received,
                                 void *context);
 
-void world_clock_messaging_deinit(void);
+void time_traveller_messaging_deinit(void);
 
-void world_clock_messaging_request_overlay(uint16_t map_width,
+void time_traveller_messaging_request_overlay(uint16_t map_width,
                                            uint16_t map_height);
 
-void world_clock_messaging_request_city_data(void);
+void time_traveller_messaging_request_city_data(void);

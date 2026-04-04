@@ -6,4 +6,4 @@ typedef struct {
     float latitude;
 } CityCoordinates;
 
-CityCoordinates *world_clock_get_city_coordinates(int city_index);
+CityCoordinates *time_traveller_get_city_coordinates(int city_index);

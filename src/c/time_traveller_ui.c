@@ -1,9 +1,9 @@
-#include "world_clock_ui.h"
+#include "time_traveller_ui.h"
 #include <string.h>
 
 #define MARGIN 8
 
-uint8_t world_clock_ui_palette_size(GBitmapFormat format) {
+uint8_t time_traveller_ui_palette_size(GBitmapFormat format) {
   switch (format) {
   case GBitmapFormat1BitPalette:
     return 2;
@@ -16,18 +16,18 @@ uint8_t world_clock_ui_palette_size(GBitmapFormat format) {
   }
 }
 
-uint8_t world_clock_ui_luminance_steps(GColor color) {
+uint8_t time_traveller_ui_luminance_steps(GColor color) {
   const uint16_t total = color.r + color.g + color.b;
   return (uint8_t)((total + 1) / 3);
 }
 
-uint8_t world_clock_ui_blend_channel(uint8_t background, uint8_t foreground,
+uint8_t time_traveller_ui_blend_channel(uint8_t background, uint8_t foreground,
                                      uint8_t luminance) {
   return (uint8_t)((background * (3 - luminance) + foreground * luminance + 1) /
                    3);
 }
 
-GColor world_clock_ui_palette_color_for_luminance(uint8_t luminance,
+GColor time_traveller_ui_palette_color_for_luminance(uint8_t luminance,
                                                   GColor background,
                                                   GColor foreground) {
   if (luminance == 0) {
@@ -39,13 +39,13 @@ GColor world_clock_ui_palette_color_for_luminance(uint8_t luminance,
 
   return (GColor){
       .a = 3,
-      .r = world_clock_ui_blend_channel(background.r, foreground.r, luminance),
-      .g = world_clock_ui_blend_channel(background.g, foreground.g, luminance),
-      .b = world_clock_ui_blend_channel(background.b, foreground.b, luminance),
+      .r = time_traveller_ui_blend_channel(background.r, foreground.r, luminance),
+      .g = time_traveller_ui_blend_channel(background.g, foreground.g, luminance),
+      .b = time_traveller_ui_blend_channel(background.b, foreground.b, luminance),
   };
 }
 
-void world_clock_ui_recolor(GBitmap *bitmap) {
+void time_traveller_ui_recolor(GBitmap *bitmap) {
   if (!bitmap) {
     return;
   }
@@ -59,17 +59,17 @@ void world_clock_ui_recolor(GBitmap *bitmap) {
   }
 
   const uint8_t palette_size =
-      world_clock_ui_palette_size(gbitmap_get_format(bitmap));
+      time_traveller_ui_palette_size(gbitmap_get_format(bitmap));
   for (uint8_t i = 0; i < palette_size; ++i) {
-    const uint8_t luminance = world_clock_ui_luminance_steps(palette[i]);
-    GColor color = world_clock_ui_palette_color_for_luminance(
+    const uint8_t luminance = time_traveller_ui_luminance_steps(palette[i]);
+    GColor color = time_traveller_ui_palette_color_for_luminance(
         luminance, background, foreground);
     color.a = palette[i].a;
     palette[i] = color;
   }
 }
 
-void world_clock_ui_recolor_night(GBitmap *bitmap) {
+void time_traveller_ui_recolor_night(GBitmap *bitmap) {
   const GColor background = COLOR_MAP_NIGHT_BACKGROUND;
   const GColor foreground = COLOR_MAP_NIGHT_FOREGROUND;
   if (!bitmap) {
@@ -82,17 +82,17 @@ void world_clock_ui_recolor_night(GBitmap *bitmap) {
   }
 
   const uint8_t palette_size =
-      world_clock_ui_palette_size(gbitmap_get_format(bitmap));
+      time_traveller_ui_palette_size(gbitmap_get_format(bitmap));
   for (uint8_t i = 0; i < palette_size; ++i) {
-    const uint8_t luminance = world_clock_ui_luminance_steps(palette[i]);
-    GColor color = world_clock_ui_palette_color_for_luminance(
+    const uint8_t luminance = time_traveller_ui_luminance_steps(palette[i]);
+    GColor color = time_traveller_ui_palette_color_for_luminance(
         luminance, background, foreground);
     color.a = palette[i].a;
     palette[i] = color;
   }
 }
 
-int16_t world_clock_ui_clamp_x(int16_t x, int16_t width) {
+int16_t time_traveller_ui_clamp_x(int16_t x, int16_t width) {
   if (x < 0) {
     return 0;
   }
@@ -102,7 +102,7 @@ int16_t world_clock_ui_clamp_x(int16_t x, int16_t width) {
   return x;
 }
 
-void world_clock_ui_draw_segment(GContext *ctx, int16_t y, int16_t start_x,
+void time_traveller_ui_draw_segment(GContext *ctx, int16_t y, int16_t start_x,
                                  int16_t end_x, GColor color) {
   if (start_x > end_x) {
     return;
@@ -113,7 +113,7 @@ void world_clock_ui_draw_segment(GContext *ctx, int16_t y, int16_t start_x,
                      GCornerNone);
 }
 
-void world_clock_ui_draw_bitmap_segment(GContext *ctx, const GBitmap *bitmap,
+void time_traveller_ui_draw_bitmap_segment(GContext *ctx, const GBitmap *bitmap,
                                         const GRect map_rect, int16_t row,
                                         int16_t start_x, int16_t end_x) {
   if (!ctx || !bitmap || start_x > end_x) {

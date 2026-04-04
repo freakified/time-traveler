@@ -133,9 +133,26 @@ function dayLabelForCity(city, now) {
 // ============================================================
 // User timezone auto-detection
 // ============================================================
+// ============================================================
+// User timezone auto-detection: geolocation -> offset fallback
+// ============================================================
+function findNearestCityByCoords(lat, lon) {
+  var bestIdx = 16;
+  var bestDist = 999999;
+
+  for (var i = 0; i < NUM_CITIES; i++) {
+    var dlat = CITIES[i].lat - lat;
+    var dlon = CITIES[i].lon - lon;
+    var dist = dlat * dlat + dlon * dlon;
+    if (dist < bestDist) {
+      bestDist = dist;
+      bestIdx = i;
+    }
+  }
+  return bestIdx;
+}
+
 function detectUserCityIndex(now) {
-  // Skip Intl - crashes in some JS environments (emulator, older JSC)
-  // Fallback: match by current UTC offset
   var userOffsetMin = -now.getTimezoneOffset();
   var bestIdx = 16; // UTC as default
   var bestDiff = Math.abs(userOffsetMin);
@@ -150,60 +167,38 @@ function detectUserCityIndex(now) {
   return bestIdx;
 }
 
-function tzNameToCityIndex(tz) {
-  var map = {
-    "Pacific/Pago_Pago": 0,
-    "Pacific/Honolulu": 1,
-    "America/Anchorage": 2,
-    "America/Vancouver": 3,
-    "America/Los_Angeles": 4,
-    "America/Edmonton": 5,
-    "America/Denver": 6,
-    "America/Mexico_City": 7,
-    "America/Chicago": 8,
-    "America/New_York": 9,
-    "America/Santiago": 10,
-    "America/Halifax": 11,
-    "America/St_Johns": 12,
-    "America/Sao_Paulo": 13,
-    "America/Noronha": 14,
-    "Atlantic/Cape_Verde": 15,
-    "Etc/UTC": 16, "UTC": 16,
-    "Europe/Lisbon": 17,
-    "Europe/London": 18,
-    "Europe/Madrid": 19,
-    "Europe/Paris": 20,
-    "Europe/Rome": 21,
-    "Europe/Berlin": 22,
-    "Europe/Stockholm": 23,
-    "Europe/Athens": 24,
-    "Africa/Cairo": 25,
-    "Asia/Jerusalem": 26,
-    "Europe/Moscow": 27,
-    "Asia/Riyadh": 28,
-    "Asia/Tehran": 29,
-    "Asia/Dubai": 30,
-    "Asia/Kabul": 31,
-    "Asia/Karachi": 32,
-    "Asia/Kolkata": 33,
-    "Asia/Kathmandu": 34,
-    "Asia/Dhaka": 35,
-    "Asia/Yangon": 36,
-    "Asia/Bangkok": 37,
-    "Asia/Singapore": 38,
-    "Asia/Hong_Kong": 39,
-    "Asia/Shanghai": 40,
-    "Asia/Taipei": 41,
-    "Asia/Seoul": 42,
-    "Asia/Tokyo": 43,
-    "Australia/Adelaide": 44,
-    "Pacific/Guam": 45,
-    "Australia/Sydney": 46,
-    "Pacific/Noumea": 47,
-    "Pacific/Auckland": 48
-  };
-  if (map[tz] !== undefined) return map[tz];
-  return -1;
+function detectUserCityIndexGeolocation(callback) {
+  if (typeof navigator === "undefined" || !navigator.geolocation) {
+    callback(-1);
+    return;
+  }
+
+  var done = false;
+  var timer = setTimeout(function() {
+    if (!done) {
+      done = true;
+      callback(-1);
+    }
+  }, 3000);
+
+  navigator.geolocation.getCurrentPosition(function(pos) {
+    if (!done) {
+      done = true;
+      clearTimeout(timer);
+      var idx = findNearestCityByCoords(pos.coords.latitude, pos.coords.longitude);
+      callback(idx);
+    }
+  }, function() {
+    if (!done) {
+      done = true;
+      clearTimeout(timer);
+      callback(-1);
+    }
+  }, {
+    enableHighAccuracy: false,
+    timeout: 5000,
+    maximumAge: 600000
+  });
 }
 
 // ============================================================
@@ -249,10 +244,10 @@ function sendDictionary(dictionary, success, failure) {
   });
 }
 
-function sendCityData() {
+function sendCityData(userCityIndex) {
   var now = new Date();
   var blob = computeCityDataBlob(now);
-  var userIdx = detectUserCityIndex(now);
+  var userIdx = (userCityIndex !== undefined && userCityIndex >= 0) ? userCityIndex : detectUserCityIndex(now);
 
   if (cityDataBlobsEqual(blob, lastSentCityData)) {
     return;
@@ -456,7 +451,9 @@ function startDstChecks() {
 Pebble.addEventListener("ready", function() {
   startMinuteUpdates();
   startDstChecks();
-  sendCityData();
+  detectUserCityIndexGeolocation(function(idx) {
+    sendCityData(idx);
+  });
 });
 
 Pebble.addEventListener("appmessage", function(event) {

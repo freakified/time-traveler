@@ -1,5 +1,5 @@
-#include "world_clock_messaging.h"
-#include "world_clock_overlay.h"
+#include "time_traveller_messaging.h"
+#include "time_traveller_overlay.h"
 #include "message_keys.auto.h"
 #include <string.h>
 
@@ -11,6 +11,7 @@ typedef struct {
   uint8_t city_data_buf[256]; // 49 cities * 4 bytes = 196 bytes max
   uint16_t city_data_total;
   uint16_t city_data_received;
+  int8_t city_data_user_index;
 } MessagingContext;
 
 static MessagingContext s_messaging_ctx;
@@ -40,7 +41,7 @@ static void prv_inbox_received(DictionaryIterator *iter, void *context) {
     const uint16_t row_start = (uint16_t)row_start_tuple->value->int32;
     const uint16_t row_count = (uint16_t)row_count_tuple->value->int32;
 
-    if (total_rows == 0 || total_rows > WORLD_CLOCK_OVERLAY_MAX_ROWS ||
+    if (total_rows == 0 || total_rows > time_traveller_OVERLAY_MAX_ROWS ||
         row_count == 0 || row_start + row_count > total_rows) {
       APP_LOG(APP_LOG_LEVEL_WARNING, "overlay payload bounds invalid");
       return;
@@ -84,6 +85,10 @@ static void prv_inbox_received(DictionaryIterator *iter, void *context) {
     if (start == 0) {
       s_messaging_ctx.city_data_total = total;
       s_messaging_ctx.city_data_received = 0;
+      s_messaging_ctx.city_data_user_index = -1;
+      if (user_idx) {
+        s_messaging_ctx.city_data_user_index = (int8_t)user_idx->value->int32;
+      }
     }
 
     // Copy chunk into buffer
@@ -93,16 +98,11 @@ static void prv_inbox_received(DictionaryIterator *iter, void *context) {
 
     // All chunks received
     if (s_messaging_ctx.city_data_received >= s_messaging_ctx.city_data_total) {
-      int8_t user_city_index = -1;
-      if (user_idx) {
-        user_city_index = (int8_t)user_idx->value->int32;
-      }
-
       if (s_messaging_ctx.on_city_data_received) {
         s_messaging_ctx.on_city_data_received(
             s_messaging_ctx.city_data_buf,
             s_messaging_ctx.city_data_total,
-            user_city_index,
+            s_messaging_ctx.city_data_user_index,
             s_messaging_ctx.context);
       }
     }
@@ -121,7 +121,7 @@ static void prv_outbox_failed(DictionaryIterator *iter, AppMessageResult reason,
 
 static void prv_outbox_sent(DictionaryIterator *iter, void *context) {}
 
-void world_clock_messaging_init(WorldClockMessageOverlayCallback on_overlay_received,
+void time_traveller_messaging_init(WorldClockMessageOverlayCallback on_overlay_received,
                                 WorldClockMessageCityDataCallback on_city_data_received,
                                 void *context) {
   memset(&s_messaging_ctx, 0, sizeof(MessagingContext));
@@ -133,15 +133,15 @@ void world_clock_messaging_init(WorldClockMessageOverlayCallback on_overlay_rece
   app_message_register_inbox_dropped(prv_inbox_dropped);
   app_message_register_outbox_failed(prv_outbox_failed);
   app_message_register_outbox_sent(prv_outbox_sent);
-  app_message_open(WORLD_CLOCK_MESSAGING_INBOX_SIZE,
-                   WORLD_CLOCK_MESSAGING_OUTBOX_SIZE);
+  app_message_open(time_traveller_MESSAGING_INBOX_SIZE,
+                   time_traveller_MESSAGING_OUTBOX_SIZE);
 }
 
-void world_clock_messaging_deinit(void) {
+void time_traveller_messaging_deinit(void) {
   app_message_deregister_callbacks();
 }
 
-void world_clock_messaging_request_overlay(uint16_t map_width,
+void time_traveller_messaging_request_overlay(uint16_t map_width,
                                            uint16_t map_height) {
   DictionaryIterator *iter = NULL;
   AppMessageResult result = app_message_outbox_begin(&iter);
@@ -161,7 +161,7 @@ void world_clock_messaging_request_overlay(uint16_t map_width,
   }
 }
 
-void world_clock_messaging_request_city_data(void) {
+void time_traveller_messaging_request_city_data(void) {
   DictionaryIterator *iter = NULL;
   AppMessageResult result = app_message_outbox_begin(&iter);
   if (result != APP_MSG_OK || !iter) {

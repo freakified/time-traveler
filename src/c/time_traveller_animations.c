@@ -1,7 +1,7 @@
 #include <pebble.h>
 #include <stddef.h>
-#include "world_clock_animations.h"
-#include "world_clock_private.h"
+#include "time_traveller_animations.h"
+#include "time_traveller_private.h"
 
 typedef void (*AnimatedNumbersSetter)(void *subject, WorldClockDataViewNumbers numbers);
 
@@ -15,8 +15,8 @@ static WorldClockDataViewNumbers get_animated_numbers(WorldClockMainWindowViewMo
 
 static void set_animated_numbers(void *subject, WorldClockDataViewNumbers numbers) {
   WorldClockData *data = (WorldClockData *)((char *)subject - offsetof(WorldClockData, view_model));
-  world_clock_view_model_fill_numbers(&data->view_model, numbers, data->data_point);
-  world_clock_main_window_view_model_announce_changed(&data->view_model);
+  time_traveller_view_model_fill_numbers(&data->view_model, numbers, data->data_point);
+  time_traveller_main_window_view_model_announce_changed(&data->view_model);
 }
 
 static inline int16_t distance_interpolate(const int32_t normalized, int16_t from, int16_t to) {
@@ -52,11 +52,11 @@ static const PropertyAnimationImplementation s_animated_numbers_implementation =
   },
 };
 
-Animation *world_clock_create_view_model_animation_numbers(WorldClockMainWindowViewModel *view_model, WorldClockDataPoint *next_data_point) {
+Animation *time_traveller_create_view_model_animation_numbers(WorldClockMainWindowViewModel *view_model, WorldClockDataPoint *next_data_point) {
   PropertyAnimation *number_animation = property_animation_create(&s_animated_numbers_implementation, view_model, NULL, NULL);
   WorldClockDataViewNumbers numbers = get_animated_numbers(view_model);
   property_animation_from(number_animation, &numbers, sizeof(numbers), true);
-  numbers = world_clock_data_point_view_model_numbers(next_data_point);
+  numbers = time_traveller_data_point_view_model_numbers(next_data_point);
   property_animation_to(number_animation, &numbers, sizeof(numbers), true);
   return (Animation *) number_animation;
 }
@@ -68,7 +68,7 @@ static void update_bg_color_normalized(Animation *animation, const uint32_t dist
   property_animation_get_subject((PropertyAnimation *) animation, (void **)&view_model);
 
   view_model->bg_color.to_bottom_normalized = distance_normalized;
-  world_clock_main_window_view_model_announce_changed(view_model);
+  time_traveller_main_window_view_model_announce_changed(view_model);
 }
 
 static const PropertyAnimationImplementation s_bg_color_normalized_implementation = {
@@ -83,9 +83,9 @@ static void bg_colors_animation_started(Animation *animation, void *context) {
 
   WorldClockData *data = (WorldClockData *)((char *)view_model - offsetof(WorldClockData, view_model));
   WorldClockDataPoint *dp = (WorldClockDataPoint *)context;
-  int city_index = world_clock_index_of_data_point(dp);
-  bool is_night = world_clock_is_city_index_night(data, city_index);
-  GColor color = world_clock_data_point_color(dp, is_night);
+  int city_index = time_traveller_index_of_data_point(dp);
+  bool is_night = time_traveller_is_city_index_night(data, city_index);
+  GColor color = time_traveller_data_point_color(dp, is_night);
 
   if (animation_get_reverse(animation)) {
     view_model->bg_color.top = color;
@@ -93,7 +93,7 @@ static void bg_colors_animation_started(Animation *animation, void *context) {
     view_model->bg_color.bottom = color;
   }
 
-  world_clock_main_window_view_model_announce_changed(view_model);
+  time_traveller_main_window_view_model_announce_changed(view_model);
 }
 
 static void bg_colors_animation_stopped(Animation *animation, bool finished, void *context) {
@@ -102,14 +102,14 @@ static void bg_colors_animation_stopped(Animation *animation, bool finished, voi
 
   WorldClockData *data = (WorldClockData *)((char *)view_model - offsetof(WorldClockData, view_model));
   WorldClockDataPoint *dp = (WorldClockDataPoint *)context;
-  int city_index = world_clock_index_of_data_point(dp);
-  bool is_night = world_clock_is_city_index_night(data, city_index);
-  GColor color = world_clock_data_point_color(dp, is_night);
+  int city_index = time_traveller_index_of_data_point(dp);
+  bool is_night = time_traveller_is_city_index_night(data, city_index);
+  GColor color = time_traveller_data_point_color(dp, is_night);
 
-  world_clock_view_model_fill_colors(view_model, color);
+  time_traveller_view_model_fill_colors(view_model, color);
 }
 
-Animation *world_clock_create_view_model_animation_bgcolor(WorldClockMainWindowViewModel *view_model, WorldClockDataPoint *next_data_point) {
+Animation *time_traveller_create_view_model_animation_bgcolor(WorldClockMainWindowViewModel *view_model, WorldClockDataPoint *next_data_point) {
   Animation *bg_animation = (Animation *) property_animation_create(&s_bg_color_normalized_implementation, view_model, NULL, NULL);
   animation_set_handlers(bg_animation, (AnimationHandlers){
     .started = bg_colors_animation_started,

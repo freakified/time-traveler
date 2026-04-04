@@ -1,4 +1,4 @@
-#include "world_clock_overlay.h"
+#include "time_traveller_overlay.h"
 #include <string.h>
 
 #define OVERLAY_PERSIST_KEY 2
@@ -18,7 +18,7 @@ static void prv_timeout_callback(void *context) {
   }
 }
 
-void world_clock_overlay_init(WorldClockOverlay *overlay,
+void time_traveller_overlay_init(WorldClockOverlay *overlay,
                               WorldClockOverlayCompleteCallback on_complete,
                               WorldClockOverlayTimeoutCallback on_timeout,
                               void *context) {
@@ -33,8 +33,8 @@ void world_clock_overlay_init(WorldClockOverlay *overlay,
   overlay->valid = false;
 }
 
-void world_clock_overlay_deinit(WorldClockOverlay *overlay) {
-  world_clock_overlay_cancel_timeout(overlay);
+void time_traveller_overlay_deinit(WorldClockOverlay *overlay) {
+  time_traveller_overlay_cancel_timeout(overlay);
 }
 
 static bool prv_cache_is_fresh(uint32_t timestamp) {
@@ -43,10 +43,10 @@ static bool prv_cache_is_fresh(uint32_t timestamp) {
   }
   time_t now = time(NULL);
   uint32_t age = (uint32_t)(now - timestamp);
-  return age < WORLD_CLOCK_OVERLAY_CACHE_MAX_AGE_SECONDS;
+  return age < time_traveller_OVERLAY_CACHE_MAX_AGE_SECONDS;
 }
 
-bool world_clock_overlay_load_cache(WorldClockOverlay *overlay,
+bool time_traveller_overlay_load_cache(WorldClockOverlay *overlay,
                                     uint16_t current_width,
                                     uint16_t current_height) {
   if (!persist_exists(OVERLAY_PERSIST_KEY)) {
@@ -59,8 +59,8 @@ bool world_clock_overlay_load_cache(WorldClockOverlay *overlay,
     uint16_t map_height;
     uint16_t total_rows;
     uint32_t timestamp;
-    uint8_t daylight_start[WORLD_CLOCK_OVERLAY_MAX_ROWS];
-    uint8_t daylight_end[WORLD_CLOCK_OVERLAY_MAX_ROWS];
+    uint8_t daylight_start[time_traveller_OVERLAY_MAX_ROWS];
+    uint8_t daylight_end[time_traveller_OVERLAY_MAX_ROWS];
   } backup;
 
   if (persist_read_data(OVERLAY_PERSIST_KEY, &backup, sizeof(backup)) !=
@@ -78,7 +78,7 @@ bool world_clock_overlay_load_cache(WorldClockOverlay *overlay,
   }
 
   if (backup.total_rows == 0 ||
-      backup.total_rows > WORLD_CLOCK_OVERLAY_MAX_ROWS) {
+      backup.total_rows > time_traveller_OVERLAY_MAX_ROWS) {
     return false;
   }
 
@@ -99,7 +99,7 @@ bool world_clock_overlay_load_cache(WorldClockOverlay *overlay,
   return true;
 }
 
-void world_clock_overlay_reset(WorldClockOverlay *overlay, uint32_t version,
+void time_traveller_overlay_reset(WorldClockOverlay *overlay, uint32_t version,
                                uint16_t map_width, uint16_t map_height,
                                uint16_t total_rows) {
   overlay->version = version;
@@ -111,7 +111,7 @@ void world_clock_overlay_reset(WorldClockOverlay *overlay, uint32_t version,
   memset(overlay->row_received, 0, sizeof(overlay->row_received));
 }
 
-bool world_clock_overlay_feed_chunk(WorldClockOverlay *overlay,
+bool time_traveller_overlay_feed_chunk(WorldClockOverlay *overlay,
                                     uint16_t row_start, uint16_t row_count,
                                     const uint8_t *data, uint16_t data_len) {
   if (!data || data_len < row_count * 2) {
@@ -121,7 +121,7 @@ bool world_clock_overlay_feed_chunk(WorldClockOverlay *overlay,
   uint16_t parsed = 0;
   for (uint16_t i = 0; i < row_count; i++) {
     uint16_t row_index = row_start + i;
-    if (row_index >= WORLD_CLOCK_OVERLAY_MAX_ROWS) {
+    if (row_index >= time_traveller_OVERLAY_MAX_ROWS) {
       break;
     }
 
@@ -138,7 +138,7 @@ bool world_clock_overlay_feed_chunk(WorldClockOverlay *overlay,
   return overlay->received_rows >= overlay->expected_rows;
 }
 
-bool world_clock_overlay_query_row(const WorldClockOverlay *overlay,
+bool time_traveller_overlay_query_row(const WorldClockOverlay *overlay,
                                    uint16_t row, uint8_t *start_out,
                                    uint8_t *end_out) {
   if (!overlay->valid || row >= overlay->expected_rows) {
@@ -152,8 +152,8 @@ bool world_clock_overlay_query_row(const WorldClockOverlay *overlay,
   return true;
 }
 
-void world_clock_overlay_start_timeout(WorldClockOverlay *overlay) {
-  world_clock_overlay_cancel_timeout(overlay);
+void time_traveller_overlay_start_timeout(WorldClockOverlay *overlay) {
+  time_traveller_overlay_cancel_timeout(overlay);
 
   OverlayCallbacks *callbacks = malloc(sizeof(OverlayCallbacks));
   callbacks->overlay = overlay;
@@ -161,15 +161,15 @@ void world_clock_overlay_start_timeout(WorldClockOverlay *overlay) {
   callbacks->on_timeout = NULL;
   callbacks->context = NULL;
 
-  app_timer_register(WORLD_CLOCK_OVERLAY_TIMEOUT_MS, prv_timeout_callback,
+  app_timer_register(time_traveller_OVERLAY_TIMEOUT_MS, prv_timeout_callback,
                      callbacks);
 }
 
-void world_clock_overlay_cancel_timeout(WorldClockOverlay *overlay) {
+void time_traveller_overlay_cancel_timeout(WorldClockOverlay *overlay) {
   (void)overlay;
 }
 
-void world_clock_overlay_save_cache(const WorldClockOverlay *overlay) {
+void time_traveller_overlay_save_cache(const WorldClockOverlay *overlay) {
   if (!overlay->valid) {
     return;
   }
@@ -180,8 +180,8 @@ void world_clock_overlay_save_cache(const WorldClockOverlay *overlay) {
     uint16_t map_height;
     uint16_t total_rows;
     uint32_t timestamp;
-    uint8_t daylight_start[WORLD_CLOCK_OVERLAY_MAX_ROWS];
-    uint8_t daylight_end[WORLD_CLOCK_OVERLAY_MAX_ROWS];
+    uint8_t daylight_start[time_traveller_OVERLAY_MAX_ROWS];
+    uint8_t daylight_end[time_traveller_OVERLAY_MAX_ROWS];
   } backup;
 
   backup.version = overlay->version;
@@ -198,7 +198,7 @@ void world_clock_overlay_save_cache(const WorldClockOverlay *overlay) {
   persist_write_data(OVERLAY_PERSIST_KEY, &backup, sizeof(backup));
 }
 
-bool world_clock_overlay_is_city_night(const WorldClockOverlay *overlay,
+bool time_traveller_overlay_is_city_night(const WorldClockOverlay *overlay,
                                        uint16_t map_width, int16_t city_row,
                                        int16_t city_col) {
   if (!overlay->valid || overlay->expected_rows == 0) {
@@ -212,8 +212,8 @@ bool world_clock_overlay_is_city_night(const WorldClockOverlay *overlay,
   uint8_t day_start = overlay->daylight_start[city_row];
   uint8_t day_end = overlay->daylight_end[city_row];
 
-  if (day_start == WORLD_CLOCK_OVERLAY_FULL_NIGHT &&
-      day_end == WORLD_CLOCK_OVERLAY_FULL_NIGHT) {
+  if (day_start == time_traveller_OVERLAY_FULL_NIGHT &&
+      day_end == time_traveller_OVERLAY_FULL_NIGHT) {
     return true;
   }
 
