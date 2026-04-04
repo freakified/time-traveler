@@ -1,7 +1,6 @@
+#include "metrics.h"
 #include "time_traveller_ui.h"
 #include <string.h>
-
-#define MARGIN 8
 
 uint8_t time_traveller_ui_palette_size(GBitmapFormat format) {
   switch (format) {
@@ -137,9 +136,9 @@ GRect init_text_layer(Layer *parent_layer, TextLayer **text_layer, int16_t y,
                       int16_t h, int16_t additional_right_margin,
                       char *font_key) {
   const int16_t font_compensator =
-      strcmp(font_key, FONT_KEY_LECO_38_BOLD_NUMBERS) == 0 ? 3 : 1;
+      strcmp(font_key, LAYOUT_FONT_TIME) == 0 ? LAYOUT_FONT_COMPENSATOR_LECO_38 : LAYOUT_FONT_COMPENSATOR_DEFAULT;
 
-  const int16_t current_margin = PBL_IF_ROUND_ELSE(4, MARGIN);
+  const int16_t current_margin = LAYOUT_BASE_MARGIN;
 
   const GRect frame =
       GRect(current_margin - font_compensator, y,
@@ -161,8 +160,8 @@ GRect init_text_layer(Layer *parent_layer, TextLayer **text_layer, int16_t y,
 }
 
 void init_statusbar_text_layer(Layer *parent, TextLayer **layer) {
-  const int16_t status_margin = PBL_IF_ROUND_ELSE(8, MARGIN);
-  const GFont font = fonts_get_system_font(FONT_KEY_GOTHIC_14);
+  const int16_t status_margin = LAYOUT_STATUSBAR_MARGIN;
+  const GFont font = fonts_get_system_font(LAYOUT_FONT_STATUSBAR);
   const GRect status_bounds =
       GRect(0, 0, layer_get_bounds(parent).size.w - 2 * status_margin,
             STATUS_BAR_LAYER_HEIGHT);

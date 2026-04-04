@@ -12,10 +12,14 @@ typedef struct {
 
 static void prv_timeout_callback(void *context) {
   OverlayCallbacks *callbacks = (OverlayCallbacks *)context;
-  callbacks->overlay->valid = false;
+  if (callbacks->overlay->valid) {
+    free(callbacks);
+    return;
+  }
   if (callbacks->on_timeout) {
     callbacks->on_timeout(callbacks->context);
   }
+  free(callbacks);
 }
 
 void time_traveller_overlay_init(WorldClockOverlay *overlay,

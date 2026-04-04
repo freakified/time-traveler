@@ -88,7 +88,7 @@ typedef struct {
 } WorldClockDataViewNumbers;
 
 void time_traveller_view_model_set_time(WorldClockMainWindowViewModel *model,
-                                     int16_t hour, int16_t minute);
+                                        int16_t hour, int16_t minute);
 void time_traveller_view_model_set_relative_info(
     WorldClockMainWindowViewModel *model, int16_t offset_hours,
     WorldClockDataPoint *data_point);
@@ -102,15 +102,15 @@ time_traveller_data_point_create_icon(WorldClockDataPoint *data_point);
 void time_traveller_view_model_fill_strings_and_pagination(
     WorldClockMainWindowViewModel *view_model, WorldClockDataPoint *data_point);
 
-void time_traveller_view_model_fill_numbers(WorldClockMainWindowViewModel *model,
-                                         WorldClockDataViewNumbers numbers,
-                                         WorldClockDataPoint *data_point);
+void time_traveller_view_model_fill_numbers(
+    WorldClockMainWindowViewModel *model, WorldClockDataViewNumbers numbers,
+    WorldClockDataPoint *data_point);
 
 void time_traveller_view_model_fill_all(WorldClockMainWindowViewModel *model,
-                                     WorldClockDataPoint *data_point);
+                                        WorldClockDataPoint *data_point);
 
 void time_traveller_view_model_fill_colors(WorldClockMainWindowViewModel *model,
-                                        GColor color);
+                                           GColor color);
 
 void time_traveller_view_model_fill_night_mode(
     WorldClockMainWindowViewModel *model, bool is_night);
@@ -118,13 +118,13 @@ void time_traveller_view_model_fill_night_mode(
 void time_traveller_view_model_deinit(WorldClockMainWindowViewModel *model);
 
 GColor time_traveller_data_point_color(WorldClockDataPoint *data_point,
-                                    bool is_night);
+                                       bool is_night);
 
 int time_traveller_num_data_points(void);
 
 WorldClockDataPoint *time_traveller_data_point_at(int idx);
 WorldClockDataPoint *time_traveller_data_point_delta(WorldClockDataPoint *dp,
-                                                  int delta);
+                                                     int delta);
 int time_traveller_index_of_data_point(WorldClockDataPoint *dp);
 
 // City coordinates for map display

@@ -1,3 +1,4 @@
+#include "metrics.h"
 #include "time_traveller_animations.h"
 #include "time_traveller_data.h"
 #include "time_traveller_messaging.h"
@@ -8,17 +9,13 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define MARGIN 8
-#define WORLD_MAP_BOTTOM_TRIM 10
+#define MARGIN LAYOUT_MARGIN
+#define WORLD_MAP_BOTTOM_TRIM LAYOUT_WORLD_MAP_BOTTOM_TRIM
 
-#define GPS_ARROW_WIDTH (12)
-#define GPS_ARROW_HEIGHT (14)
+#define GPS_ARROW_WIDTH (LAYOUT_GPS_ARROW_WIDTH)
+#define GPS_ARROW_HEIGHT (LAYOUT_GPS_ARROW_HEIGHT)
 
-#if defined(PBL_PLATFORM_GABBRO)
-#define WORLD_MAP_TOP 45
-#else
-#define WORLD_MAP_TOP STATUS_BAR_LAYER_HEIGHT
-#endif
+#define WORLD_MAP_TOP LAYOUT_WORLD_MAP_TOP
 
 static Window *s_main_window;
 
@@ -69,7 +66,7 @@ static void start_dot_animation(WorldClockData *data, int new_city_index) {
       .update = dot_animation_update};
 
   Animation *dot_animation = animation_create();
-  animation_set_duration(dot_animation, 300);
+  animation_set_duration(dot_animation, LAYOUT_DOT_ANIMATION_DURATION_MS);
   animation_set_curve(dot_animation, AnimationCurveEaseInOut);
   animation_set_implementation(dot_animation, &dot_anim_impl);
   animation_set_handlers(dot_animation,
@@ -254,16 +251,16 @@ static void map_update_proc(Layer *layer, GContext *ctx) {
                      GPoint(dot_position.x, bounds.size.h));
 
   graphics_context_set_fill_color(ctx, data->view_model.dot_fill_color);
-  graphics_fill_circle(ctx, dot_position, 4);
+  graphics_fill_circle(ctx, dot_position, LAYOUT_CITY_DOT_RADIUS);
 
   graphics_context_set_stroke_color(ctx, data->view_model.dot_outline_color);
-  graphics_draw_circle(ctx, dot_position, 4);
+  graphics_draw_circle(ctx, dot_position, LAYOUT_CITY_DOT_RADIUS);
 }
 
 static void horizontal_ruler_update_proc(Layer *layer, GContext *ctx) {
   WorldClockData *data = window_get_user_data(s_main_window);
   const GRect bounds = layer_get_bounds(layer);
-  const int16_t yy = 11;
+  const int16_t yy = LAYOUT_RULER_LINE_Y_OFFSET;
 
   graphics_context_set_stroke_color(ctx, data->view_model.ruler_color);
   graphics_draw_line(ctx, GPoint(0, yy), GPoint(bounds.size.w, yy));
@@ -288,8 +285,7 @@ static void prv_overlay_received(uint16_t map_width, uint16_t map_height,
     return;
   }
 
-  if (data->overlay.version != version ||
-      data->overlay.map_width != map_width ||
+  if (data->overlay.map_width != map_width ||
       data->overlay.map_height != map_height ||
       data->overlay.expected_rows != total_rows) {
     time_traveller_overlay_reset(&data->overlay, version, map_width, map_height,
@@ -343,13 +339,13 @@ static void prv_city_data_received(const uint8_t *blob, uint16_t length,
 
     if (show_arrow) {
       GRect city_frame = layer_get_frame(text_layer_get_layer(data->city_layer));
-      GFont city_font = fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD);
+      GFont city_font = fonts_get_system_font(LAYOUT_FONT_CITY);
       GSize text_size = graphics_text_layout_get_content_size(
           data->view_model.city, city_font,
           GRect(0, 0, city_frame.size.w, city_frame.size.h),
           GTextOverflowModeTrailingEllipsis, GTextAlignmentLeft);
 
-      const int16_t spacing = 4;
+      const int16_t spacing = LAYOUT_GPS_ARROW_TEXT_SPACING;
       int16_t text_right_x;
       if (PBL_IF_ROUND_ELSE(true, false)) {
         int16_t text_left_x = city_frame.origin.x + (city_frame.size.w - text_size.w) / 2;
@@ -369,15 +365,15 @@ static void prv_city_data_received(const uint8_t *blob, uint16_t length,
         text_right_x = city_frame.origin.x + text_size.w;
       }
       layer_set_frame(data->gps_arrow_layer,
-                      GRect(text_right_x + spacing - 1,
+                      GRect(text_right_x + spacing + LAYOUT_GPS_ARROW_POSITION_ADJUST,
                             city_frame.origin.y +
-                                (city_frame.size.h - GPS_ARROW_HEIGHT) / 2 - 1,
+                                (city_frame.size.h - GPS_ARROW_HEIGHT) / 2 + LAYOUT_GPS_ARROW_POSITION_ADJUST,
                             GPS_ARROW_WIDTH, GPS_ARROW_HEIGHT));
       layer_mark_dirty(data->gps_arrow_layer);
     } else if (PBL_IF_ROUND_ELSE(true, false)) {
       GRect city_frame = layer_get_frame(text_layer_get_layer(data->city_layer));
-      const int16_t current_margin = 4;
-      GRect restored_frame = GRect(current_margin - 1, city_frame.origin.y,
+      const int16_t current_margin = LAYOUT_ROUND_CITY_MARGIN_RESTORE;
+      GRect restored_frame = GRect(current_margin + LAYOUT_ROUND_CITY_FRAME_ADJUST, city_frame.origin.y,
                                    city_frame.size.w, city_frame.size.h);
       layer_set_frame(text_layer_get_layer(data->city_layer), restored_frame);
       text_layer_set_text_alignment(data->city_layer, GTextAlignmentCenter);
@@ -415,6 +411,9 @@ static void prv_handle_minute_tick(struct tm *tick_time, TimeUnits units_changed
   time_traveller_view_model_fill_numbers(&data->view_model, numbers,
                                       data->data_point);
   const GRect map_rect = time_traveller_calibrated_map_rect(data);
+  if (!data->overlay.valid) {
+    time_traveller_overlay_start_timeout(&data->overlay);
+  }
   time_traveller_messaging_request_overlay(map_rect.size.w, map_rect.size.h);
 }
 
@@ -427,8 +426,8 @@ static void update_ampm_position(WorldClockData *data) {
     GRect time_bounds = layer_get_frame(text_layer_get_layer(data->time_layer));
     GSize time_content_size = text_layer_get_content_size(data->time_layer);
 
-    int16_t ampm_x = time_bounds.origin.x + time_content_size.w + 0;
-    int16_t ampm_y = time_bounds.origin.y + 12;
+    int16_t ampm_x = time_bounds.origin.x + time_content_size.w + LAYOUT_AMPM_X_OFFSET;
+    int16_t ampm_y = time_bounds.origin.y + LAYOUT_AMPM_Y_OFFSET;
 
     GRect ampm_frame = layer_get_frame(text_layer_get_layer(data->ampm_layer));
     layer_set_frame(
@@ -481,8 +480,8 @@ static void main_window_load(Window *window) {
   layer_set_update_proc(window_layer, bg_update_proc);
 
   const int16_t screen_width = bounds.size.w;
-  const int16_t base_margin = PBL_IF_ROUND_ELSE(4, MARGIN);
-  const int16_t map_margin = PBL_IF_ROUND_ELSE(10, -10);
+  const int16_t base_margin = LAYOUT_BASE_MARGIN;
+  const int16_t map_margin = LAYOUT_MAP_MARGIN;
   const int16_t map_width = screen_width - 2 * map_margin;
 
   data->world_map_base_image =
@@ -494,7 +493,7 @@ static void main_window_load(Window *window) {
   time_traveller_ui_recolor_night(data->world_map_night_image);
   time_traveller_ui_recolor(data->world_map_image);
 
-  int16_t map_height = 72;
+  int16_t map_height = LAYOUT_FALLBACK_MAP_HEIGHT;
   data->world_map_draw_rect = GRectZero;
   if (data->world_map_base_image) {
     const GRect image_bounds = gbitmap_get_bounds(data->world_map_base_image);
@@ -516,23 +515,22 @@ static void main_window_load(Window *window) {
   }
 
   const int16_t map_bottom = WORLD_MAP_TOP + map_height;
-  const int16_t city_y = PBL_IF_ROUND_ELSE(map_bottom + 4, map_bottom + 5);
-  const int16_t ruler_y = PBL_IF_ROUND_ELSE(map_bottom + 13, map_bottom + 22);
-  const int16_t time_y = PBL_IF_ROUND_ELSE(map_bottom + 22, map_bottom + 31);
-  const int16_t relative_info_y =
-      PBL_IF_ROUND_ELSE(map_bottom + 64, map_bottom + 73);
+  const int16_t city_y = map_bottom + LAYOUT_CITY_Y_OFFSET;
+  const int16_t ruler_y = map_bottom + LAYOUT_RULER_Y_OFFSET;
+  const int16_t time_y = map_bottom + LAYOUT_TIME_Y_OFFSET;
+  const int16_t relative_info_y = map_bottom + LAYOUT_RELATIVE_INFO_Y_OFFSET;
 
   data->horizontal_ruler_layer = layer_create(
-      GRect(base_margin, ruler_y, screen_width - 2 * base_margin, 20));
+      GRect(base_margin, ruler_y, screen_width - 2 * base_margin, LAYOUT_RULER_LAYER_HEIGHT));
   layer_set_update_proc(data->horizontal_ruler_layer,
                         horizontal_ruler_update_proc);
   layer_add_child(window_layer, data->horizontal_ruler_layer);
 
-  init_text_layer(window_layer, &data->city_layer, city_y, 30, 0,
-                  FONT_KEY_GOTHIC_18_BOLD);
+  init_text_layer(window_layer, &data->city_layer, city_y, LAYOUT_CITY_LAYER_HEIGHT, 0,
+                  LAYOUT_FONT_CITY);
 
   GRect city_frame = layer_get_frame(text_layer_get_layer(data->city_layer));
-  const int16_t city_font_height = 18;
+  const int16_t city_font_height = LAYOUT_CITY_FONT_HEIGHT;
   data->gps_arrow_layer = layer_create(
       GRect(city_frame.origin.x + city_frame.size.w,
             city_frame.origin.y + (city_font_height - GPS_ARROW_HEIGHT) / 2,
@@ -541,22 +539,22 @@ static void main_window_load(Window *window) {
   layer_add_child(window_layer, data->gps_arrow_layer);
   layer_set_hidden(data->gps_arrow_layer, true);
   const int16_t time_top = time_y;
-  init_text_layer(window_layer, &data->time_layer, time_top, 40, 0,
-                  FONT_KEY_LECO_38_BOLD_NUMBERS);
+  init_text_layer(window_layer, &data->time_layer, time_top, LAYOUT_TIME_LAYER_HEIGHT, 0,
+                  LAYOUT_FONT_TIME);
 
-  const int16_t ampm_y = time_top + 8;
-  GRect ampm_frame = GRect(base_margin, ampm_y, 40, 20);
+  const int16_t ampm_y = time_top + LAYOUT_AMPM_Y_FROM_TIME_TOP;
+  GRect ampm_frame = GRect(base_margin, ampm_y, LAYOUT_AMPM_LAYER_WIDTH, LAYOUT_AMPM_LAYER_HEIGHT);
   data->ampm_layer = text_layer_create(ampm_frame);
   text_layer_set_background_color(data->ampm_layer, GColorClear);
   text_layer_set_text_color(data->ampm_layer, COLOR_TEXT_DEFAULT);
   text_layer_set_font(
       data->ampm_layer,
-      fonts_get_system_font(FONT_KEY_LECO_26_BOLD_NUMBERS_AM_PM));
+      fonts_get_system_font(LAYOUT_FONT_AMPM));
   text_layer_set_text_alignment(data->ampm_layer, GTextAlignmentLeft);
   layer_add_child(window_layer, text_layer_get_layer(data->ampm_layer));
 
-  init_text_layer(window_layer, &data->relative_info_layer, relative_info_y, 19,
-                  0, FONT_KEY_GOTHIC_14);
+  init_text_layer(window_layer, &data->relative_info_layer, relative_info_y, LAYOUT_RELATIVE_INFO_LAYER_HEIGHT,
+                  0, LAYOUT_FONT_RELATIVE_INFO);
 
   init_statusbar_text_layer(window_layer, &data->fake_statusbar);
 
@@ -583,6 +581,12 @@ static void main_window_load(Window *window) {
   const GRect map_rect = time_traveller_calibrated_map_rect(data);
   time_traveller_overlay_load_cache(&data->overlay, map_rect.size.w,
                                  map_rect.size.h);
+
+  if (data->overlay.valid) {
+    layer_mark_dirty(data->map_layer);
+  } else {
+    time_traveller_overlay_start_timeout(&data->overlay);
+  }
 
   prv_update_night_mode(data);
 
@@ -627,13 +631,13 @@ static void after_scroll_swap_text(Animation *animation, bool finished,
 
     if (show_arrow) {
       GRect city_frame = layer_get_frame(text_layer_get_layer(data->city_layer));
-      GFont city_font = fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD);
+      GFont city_font = fonts_get_system_font(LAYOUT_FONT_CITY);
       GSize text_size = graphics_text_layout_get_content_size(
           data_point->city, city_font,
           GRect(0, 0, city_frame.size.w, city_frame.size.h),
           GTextOverflowModeTrailingEllipsis, GTextAlignmentLeft);
 
-      const int16_t spacing = 4;
+      const int16_t spacing = LAYOUT_GPS_ARROW_TEXT_SPACING;
       int16_t text_right_x;
       if (PBL_IF_ROUND_ELSE(true, false)) {
         int16_t text_left_x = city_frame.origin.x + (city_frame.size.w - text_size.w) / 2;
@@ -653,15 +657,15 @@ static void after_scroll_swap_text(Animation *animation, bool finished,
         text_right_x = city_frame.origin.x + text_size.w;
       }
       layer_set_frame(data->gps_arrow_layer,
-                      GRect(text_right_x + spacing - 1,
+                      GRect(text_right_x + spacing + LAYOUT_GPS_ARROW_POSITION_ADJUST,
                             city_frame.origin.y +
-                                (city_frame.size.h - GPS_ARROW_HEIGHT) / 2 - 1,
+                                (city_frame.size.h - GPS_ARROW_HEIGHT) / 2 + LAYOUT_GPS_ARROW_POSITION_ADJUST,
                             GPS_ARROW_WIDTH, GPS_ARROW_HEIGHT));
       layer_mark_dirty(data->gps_arrow_layer);
     } else if (PBL_IF_ROUND_ELSE(true, false)) {
       GRect city_frame = layer_get_frame(text_layer_get_layer(data->city_layer));
-      const int16_t current_margin = 4;
-      GRect restored_frame = GRect(current_margin - 1, city_frame.origin.y,
+      const int16_t current_margin = LAYOUT_ROUND_CITY_MARGIN_RESTORE;
+      GRect restored_frame = GRect(current_margin + LAYOUT_ROUND_CITY_FRAME_ADJUST, city_frame.origin.y,
                                    city_frame.size.w, city_frame.size.h);
       layer_set_frame(text_layer_get_layer(data->city_layer), restored_frame);
       text_layer_set_text_alignment(data->city_layer, GTextAlignmentCenter);
@@ -690,10 +694,10 @@ static Animation *create_anim_scroll_in(Layer *layer, uint32_t duration,
   return result;
 }
 
-static const uint32_t BACKGROUND_SCROLL_DURATION = 100 * 2;
-static const uint32_t SCROLL_DURATION = 130 * 2;
-static const int16_t SCROLL_DIST_OUT = 20;
-static const int16_t SCROLL_DIST_IN = 8;
+static const uint32_t BACKGROUND_SCROLL_DURATION = LAYOUT_BACKGROUND_SCROLL_DURATION_MS;
+static const uint32_t SCROLL_DURATION = LAYOUT_SCROLL_DURATION_MS;
+static const int16_t SCROLL_DIST_OUT = LAYOUT_SCROLL_DIST_OUT;
+static const int16_t SCROLL_DIST_IN = LAYOUT_SCROLL_DIST_IN;
 
 typedef enum {
   ScrollDirectionDown,
