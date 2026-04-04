@@ -43,6 +43,12 @@
     "resources": {
       "media": [
         {
+          "file": "images/menuicon.png",
+          "menuIcon": true,
+          "name": "MENU_ICON",
+          "type": "bitmap"
+        },
+        {
           "type": "bitmap",
           "name": "WORLD_MAP",
           "file": "images/world_map_small.png",
