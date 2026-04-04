@@ -2,37 +2,6 @@
 
 #include <pebble.h>
 
-// Color definitions for easy customization
-#define COLOR_MAP_FOREGROUND PBL_IF_COLOR_ELSE(GColorWhite, GColorWhite)
-#define COLOR_MAP_BACKGROUND                                                   \
-  PBL_IF_COLOR_ELSE(GColorPictonBlue, GColorLightGray)
-#define COLOR_MAP_NIGHT_FOREGROUND                                             \
-  PBL_IF_COLOR_ELSE(GColorLightGray, GColorLightGray)
-#define COLOR_MAP_NIGHT_BACKGROUND                                             \
-  PBL_IF_COLOR_ELSE(GColorCobaltBlue, GColorBlack)
-#define COLOR_MAP_NIGHT_OVERLAY PBL_IF_COLOR_ELSE(GColorBlack, GColorLightGray)
-#define COLOR_CROSSHAIR PBL_IF_COLOR_ELSE(GColorBlack, GColorWhite)
-#define COLOR_DOT_FILL GColorWhite
-#define COLOR_DOT_OUTLINE GColorBlack
-#define COLOR_TEXT_DEFAULT GColorBlack
-#define COLOR_RULER GColorBlack
-#define COLOR_STATUSBAR_TEXT GColorBlack
-#define COLOR_APP_BACKGROUND PBL_IF_COLOR_ELSE(GColorPictonBlue, GColorWhite)
-
-// Night Palette Definitions
-#define COLOR_MAP_FOREGROUND_NIGHT                                             \
-  PBL_IF_COLOR_ELSE(GColorLightGray, GColorLightGray)
-#define COLOR_MAP_BACKGROUND_NIGHT                                             \
-  PBL_IF_COLOR_ELSE(GColorCobaltBlue, GColorBlack)
-#define COLOR_TEXT_DEFAULT_NIGHT PBL_IF_COLOR_ELSE(GColorWhite, GColorWhite)
-#define COLOR_CROSSHAIR_NIGHT PBL_IF_COLOR_ELSE(GColorWhite, GColorWhite)
-#define COLOR_DOT_FILL_NIGHT PBL_IF_COLOR_ELSE(GColorWhite, GColorWhite)
-#define COLOR_DOT_OUTLINE_NIGHT PBL_IF_COLOR_ELSE(GColorBlack, GColorBlack)
-#define COLOR_STATUSBAR_TEXT_NIGHT GColorWhite
-#define COLOR_RULER_NIGHT GColorWhite
-#define COLOR_APP_BACKGROUND_NIGHT                                             \
-  PBL_IF_COLOR_ELSE(GColorCobaltBlue, GColorBlack)
-
 struct WorldClockMainWindowViewModel;
 
 typedef void (*WorldClockMainWindowViewModelFunc)(

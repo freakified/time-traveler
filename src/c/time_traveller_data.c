@@ -1,4 +1,5 @@
 #include <pebble.h>
+#include "metrics.h"
 #include "time_traveller_data.h"
 
 void time_traveller_main_window_view_model_announce_changed(WorldClockMainWindowViewModel *model) {

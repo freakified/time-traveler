@@ -2,6 +2,33 @@
 
 #include <pebble.h>
 
+// Colors
+#define COLOR_MAP_FOREGROUND PBL_IF_COLOR_ELSE(GColorWhite, GColorWhite)
+#define COLOR_MAP_BACKGROUND                                                   \
+  PBL_IF_COLOR_ELSE(GColorPictonBlue, GColorLightGray)
+#define COLOR_MAP_NIGHT_FOREGROUND                                             \
+  PBL_IF_COLOR_ELSE(GColorLightGray, GColorLightGray)
+#define COLOR_MAP_NIGHT_BACKGROUND                                             \
+  PBL_IF_COLOR_ELSE(GColorBlueMoon, GColorBlack)
+#define COLOR_MAP_NIGHT_OVERLAY PBL_IF_COLOR_ELSE(GColorBlack, GColorLightGray)
+#define COLOR_CROSSHAIR GColorBlack
+#define COLOR_DOT_FILL PBL_IF_COLOR_ELSE(GColorChromeYellow, GColorWhite)
+#define COLOR_DOT_OUTLINE GColorBlack
+#define COLOR_TEXT_DEFAULT GColorBlack
+#define COLOR_RULER GColorBlack
+#define COLOR_STATUSBAR_TEXT GColorBlack
+#define COLOR_APP_BACKGROUND PBL_IF_COLOR_ELSE(GColorPictonBlue, GColorWhite)
+
+#define COLOR_TEXT_DEFAULT_NIGHT GColorWhite
+#define COLOR_CROSSHAIR_NIGHT PBL_IF_COLOR_ELSE(GColorChromeYellow, GColorWhite)
+#define COLOR_DOT_FILL_NIGHT PBL_IF_COLOR_ELSE(GColorChromeYellow, GColorWhite)
+#define COLOR_DOT_FILL PBL_IF_COLOR_ELSE(GColorChromeYellow, GColorWhite)
+#define COLOR_DOT_OUTLINE_NIGHT GColorBlack
+#define COLOR_STATUSBAR_TEXT_NIGHT GColorWhite
+#define COLOR_RULER_NIGHT GColorWhite
+#define COLOR_APP_BACKGROUND_NIGHT                                             \
+  PBL_IF_COLOR_ELSE(GColorBlueMoon, GColorBlack)
+
 // Margins and spacing
 #define LAYOUT_MARGIN 8
 #define LAYOUT_BASE_MARGIN PBL_IF_ROUND_ELSE(4, 8)
@@ -17,7 +44,7 @@
 #define LAYOUT_FALLBACK_MAP_HEIGHT 72
 
 // City dot
-#define LAYOUT_CITY_DOT_RADIUS 4
+#define LAYOUT_CITY_DOT_RADIUS 3
 
 // Ruler
 #define LAYOUT_RULER_LINE_Y_OFFSET 11
@@ -42,14 +69,16 @@
 #endif
 
 // Time display
+#if defined(PBL_PLATFORM_EMERY) || defined(PBL_PLATFORM_GABBRO)
+#define LAYOUT_TIME_LAYER_HEIGHT 46
+#else
 #define LAYOUT_TIME_LAYER_HEIGHT 40
+#endif
 
 // AM/PM
 #define LAYOUT_AMPM_LAYER_WIDTH 40
 #define LAYOUT_AMPM_LAYER_HEIGHT 20
-#define LAYOUT_AMPM_Y_FROM_TIME_TOP 8
 #define LAYOUT_AMPM_X_OFFSET 0
-#define LAYOUT_AMPM_Y_OFFSET 12
 
 // Relative info
 #define LAYOUT_RELATIVE_INFO_LAYER_HEIGHT 19
@@ -73,7 +102,11 @@
 #define LAYOUT_FONT_STATUSBAR FONT_KEY_GOTHIC_14
 #endif
 
+#if defined(PBL_PLATFORM_EMERY) || defined(PBL_PLATFORM_GABBRO)
+#define LAYOUT_FONT_TIME FONT_KEY_LECO_42_NUMBERS
+#else
 #define LAYOUT_FONT_TIME FONT_KEY_LECO_38_BOLD_NUMBERS
+#endif
 #define LAYOUT_FONT_AMPM FONT_KEY_LECO_26_BOLD_NUMBERS_AM_PM
 
 // Font compensators (must match font sizes above)

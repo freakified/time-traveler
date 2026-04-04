@@ -147,20 +147,13 @@ static void prv_world_map_draw_overlay(WorldClockData *data, GContext *ctx,
       continue;
     }
 
-    const int16_t y = map_rect.origin.y + row;
     int16_t day_start = time_traveller_ui_clamp_x(day_start_value, width);
     int16_t day_end = time_traveller_ui_clamp_x(day_end_value, width);
 
     if (day_start_value == time_traveller_OVERLAY_FULL_NIGHT &&
         day_end_value == time_traveller_OVERLAY_FULL_NIGHT) {
-      if (PBL_IF_COLOR_ELSE(true, false)) {
-        time_traveller_ui_draw_bitmap_segment(ctx, data->world_map_night_image,
-                                          map_rect, row, 0, width - 1);
-      } else {
-        time_traveller_ui_draw_segment(ctx, y, map_rect.origin.x,
-                                    map_rect.origin.x + width - 1,
-                                    COLOR_MAP_NIGHT_OVERLAY);
-      }
+      time_traveller_ui_draw_bitmap_segment(ctx, data->world_map_night_image,
+                                        map_rect, row, 0, width - 1);
       continue;
     }
 
@@ -426,13 +419,26 @@ static void update_ampm_position(WorldClockData *data) {
     GRect time_bounds = layer_get_frame(text_layer_get_layer(data->time_layer));
     GSize time_content_size = text_layer_get_content_size(data->time_layer);
 
-    int16_t ampm_x = time_bounds.origin.x + time_content_size.w + LAYOUT_AMPM_X_OFFSET;
-    int16_t ampm_y = time_bounds.origin.y + LAYOUT_AMPM_Y_OFFSET;
+    GFont ampm_font = fonts_get_system_font(LAYOUT_FONT_AMPM);
+    GSize ampm_content_size = graphics_text_layout_get_content_size(
+        data->view_model.time.ampm, ampm_font,
+        GRect(0, 0, LAYOUT_AMPM_LAYER_WIDTH, LAYOUT_AMPM_LAYER_HEIGHT),
+        GTextOverflowModeTrailingEllipsis, GTextAlignmentLeft);
 
-    GRect ampm_frame = layer_get_frame(text_layer_get_layer(data->ampm_layer));
+    const int16_t screen_width = layer_get_bounds(window_get_root_layer(s_main_window)).size.w;
+    const int16_t combined_width = time_content_size.w + LAYOUT_AMPM_X_OFFSET + ampm_content_size.w;
+    const int16_t group_x = (screen_width - combined_width) / 2;
+
+    GRect new_time_bounds = GRect(group_x, time_bounds.origin.y, combined_width, time_bounds.size.h);
+    layer_set_frame(text_layer_get_layer(data->time_layer), new_time_bounds);
+    text_layer_set_text_alignment(data->time_layer, GTextAlignmentLeft);
+
+    int16_t ampm_x = group_x + time_content_size.w + LAYOUT_AMPM_X_OFFSET;
+    int16_t ampm_y = time_bounds.origin.y + time_content_size.h - ampm_content_size.h;
+
     layer_set_frame(
         text_layer_get_layer(data->ampm_layer),
-        GRect(ampm_frame.size.w, ampm_frame.size.h, ampm_x, ampm_y));
+        GRect(ampm_x, ampm_y, ampm_content_size.w, ampm_content_size.h));
   }
 }
 
@@ -542,7 +548,7 @@ static void main_window_load(Window *window) {
   init_text_layer(window_layer, &data->time_layer, time_top, LAYOUT_TIME_LAYER_HEIGHT, 0,
                   LAYOUT_FONT_TIME);
 
-  const int16_t ampm_y = time_top + LAYOUT_AMPM_Y_FROM_TIME_TOP;
+  const int16_t ampm_y = time_top;
   GRect ampm_frame = GRect(base_margin, ampm_y, LAYOUT_AMPM_LAYER_WIDTH, LAYOUT_AMPM_LAYER_HEIGHT);
   data->ampm_layer = text_layer_create(ampm_frame);
   text_layer_set_background_color(data->ampm_layer, GColorClear);
