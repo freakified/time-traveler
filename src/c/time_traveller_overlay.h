@@ -2,8 +2,9 @@
 
 #include <pebble.h>
 
-#define time_traveller_OVERLAY_MAX_ROWS 104
+#define time_traveller_OVERLAY_MAX_ROWS 140
 #define time_traveller_OVERLAY_FULL_NIGHT 255
+#define time_traveller_OVERLAY_FULL_DAY_SENTINEL 254
 #define time_traveller_OVERLAY_CACHE_MAX_AGE_SECONDS 7200
 #define time_traveller_OVERLAY_TIMEOUT_MS 10000
 

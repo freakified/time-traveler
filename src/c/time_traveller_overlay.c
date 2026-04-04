@@ -221,7 +221,7 @@ bool time_traveller_overlay_is_city_night(const WorldClockOverlay *overlay,
     return true;
   }
 
-  if (day_start == 0 && day_end == map_width - 1) {
+  if (day_start == 0 && day_end == time_traveller_OVERLAY_FULL_DAY_SENTINEL) {
     return false;
   }
 

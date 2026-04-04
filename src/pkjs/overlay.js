@@ -29,8 +29,10 @@ function normalizeLongitudeDegrees(longitude) {
 }
 
 function clampPixel(value, width) {
+  var max = width - 1;
+  if (max > 254) max = 254;
   if (value < 0) return 0;
-  if (value >= width) return width - 1;
+  if (value >= max) return max;
   return value;
 }
 
@@ -83,7 +85,7 @@ function daylightIntervalForLatitude(latitudeDegrees, solar, width) {
   }
 
   if (tanProduct <= -1) {
-    return [FULL_DAY_START, width - 1];
+    return [FULL_DAY_START, width - 1 > 254 ? 254 : width - 1];
   }
 
   var hourAngle = Math.acos(-tanProduct) * 180 / Math.PI;

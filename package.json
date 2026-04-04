@@ -49,7 +49,6 @@
           "targetPlatforms": [
             "aplite",
             "basalt",
-            "chalk",
             "diorite",
             "flint"
           ]
@@ -59,13 +58,21 @@
           "name": "WORLD_MAP",
           "file": "images/world_map_medium.png",
           "targetPlatforms": [
-            "emery"
+            "chalk"
           ]
         },
         {
           "type": "bitmap",
           "name": "WORLD_MAP",
           "file": "images/world_map_large.png",
+          "targetPlatforms": [
+            "emery"
+          ]
+        },
+        {
+          "type": "bitmap",
+          "name": "WORLD_MAP",
+          "file": "images/world_map_xl.png",
           "targetPlatforms": [
             "gabbro"
           ]
