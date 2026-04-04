@@ -1,15 +1,15 @@
-#include "time_traveller_data.h"
+#include "time_traveler_data.h"
 #include "metrics.h"
 #include <pebble.h>
 
-void time_traveller_main_window_view_model_announce_changed(
+void time_traveler_main_window_view_model_announce_changed(
     WorldClockMainWindowViewModel *model) {
   if (model->announce_changed) {
     model->announce_changed((struct WorldClockMainWindowViewModel *)model);
   }
 }
 
-void time_traveller_view_model_set_time(WorldClockMainWindowViewModel *model,
+void time_traveler_view_model_set_time(WorldClockMainWindowViewModel *model,
                                         int16_t hour, int16_t minute) {
   model->time.hour = hour;
   model->time.minute = minute;
@@ -29,7 +29,7 @@ void time_traveller_view_model_set_time(WorldClockMainWindowViewModel *model,
   }
 }
 
-void time_traveller_view_model_set_relative_info(
+void time_traveler_view_model_set_relative_info(
     WorldClockMainWindowViewModel *model, int16_t relative_offset_minutes,
     WorldClockDataPoint *data_point) {
   int16_t abs_minutes = (relative_offset_minutes < 0) ? -relative_offset_minutes
@@ -63,7 +63,7 @@ void time_traveller_view_model_set_relative_info(
 }
 
 WorldClockDataViewNumbers
-time_traveller_data_point_view_model_numbers(WorldClockDataPoint *data_point) {
+time_traveler_data_point_view_model_numbers(WorldClockDataPoint *data_point) {
   if (!data_point) {
     return (WorldClockDataViewNumbers){0};
   }
@@ -86,58 +86,58 @@ time_traveller_data_point_view_model_numbers(WorldClockDataPoint *data_point) {
   };
 }
 
-int time_traveller_index_of_data_point(WorldClockDataPoint *dp);
+int time_traveler_index_of_data_point(WorldClockDataPoint *dp);
 
-void time_traveller_view_model_fill_strings_and_pagination(
+void time_traveler_view_model_fill_strings_and_pagination(
     WorldClockMainWindowViewModel *view_model,
     WorldClockDataPoint *data_point) {
   view_model->city = data_point->city;
 
   view_model->pagination.idx =
-      (int16_t)(1 + time_traveller_index_of_data_point(data_point));
-  view_model->pagination.num = (int16_t)time_traveller_num_data_points();
+      (int16_t)(1 + time_traveler_index_of_data_point(data_point));
+  view_model->pagination.num = (int16_t)time_traveler_num_data_points();
   snprintf(view_model->pagination.text, sizeof(view_model->pagination.text),
            "%d/%d", view_model->pagination.idx, view_model->pagination.num);
-  time_traveller_main_window_view_model_announce_changed(view_model);
+  time_traveler_main_window_view_model_announce_changed(view_model);
 }
 
-void time_traveller_view_model_fill_numbers(
+void time_traveler_view_model_fill_numbers(
     WorldClockMainWindowViewModel *model, WorldClockDataViewNumbers numbers,
     WorldClockDataPoint *data_point) {
-  time_traveller_view_model_set_time(model, numbers.hour, numbers.minute);
-  time_traveller_view_model_set_relative_info(model, numbers.offset,
+  time_traveler_view_model_set_time(model, numbers.hour, numbers.minute);
+  time_traveler_view_model_set_relative_info(model, numbers.offset,
                                               data_point);
 }
 
-void time_traveller_view_model_fill_colors(WorldClockMainWindowViewModel *model,
+void time_traveler_view_model_fill_colors(WorldClockMainWindowViewModel *model,
                                            GColor color) {
   model->bg_color.top = color;
   model->bg_color.bottom = color;
-  time_traveller_main_window_view_model_announce_changed(model);
+  time_traveler_main_window_view_model_announce_changed(model);
 }
 
-GColor time_traveller_data_point_color(WorldClockDataPoint *data_point,
+GColor time_traveler_data_point_color(WorldClockDataPoint *data_point,
                                        bool is_night) {
   return is_night ? COLOR_APP_BACKGROUND_NIGHT : COLOR_APP_BACKGROUND;
 }
 
-void time_traveller_view_model_fill_all(WorldClockMainWindowViewModel *model,
+void time_traveler_view_model_fill_all(WorldClockMainWindowViewModel *model,
                                         WorldClockDataPoint *data_point) {
   WorldClockMainWindowViewModelFunc annouce_changed = model->announce_changed;
   memset(model, 0, sizeof(*model));
   model->announce_changed = annouce_changed;
-  time_traveller_view_model_fill_strings_and_pagination(model, data_point);
-  time_traveller_view_model_fill_colors(
-      model, time_traveller_data_point_color(data_point, false));
-  time_traveller_view_model_fill_night_mode(model, false);
-  time_traveller_view_model_fill_numbers(
-      model, time_traveller_data_point_view_model_numbers(data_point),
+  time_traveler_view_model_fill_strings_and_pagination(model, data_point);
+  time_traveler_view_model_fill_colors(
+      model, time_traveler_data_point_color(data_point, false));
+  time_traveler_view_model_fill_night_mode(model, false);
+  time_traveler_view_model_fill_numbers(
+      model, time_traveler_data_point_view_model_numbers(data_point),
       data_point);
 
-  time_traveller_main_window_view_model_announce_changed(model);
+  time_traveler_main_window_view_model_announce_changed(model);
 }
 
-void time_traveller_view_model_fill_loading(
+void time_traveler_view_model_fill_loading(
     WorldClockMainWindowViewModel *model) {
   WorldClockMainWindowViewModelFunc annouce_changed = model->announce_changed;
   memset(model, 0, sizeof(*model));
@@ -145,23 +145,23 @@ void time_traveller_view_model_fill_loading(
 
   model->city = "WELCOME";
   model->pagination.idx = 0;
-  model->pagination.num = (int16_t)time_traveller_num_data_points();
+  model->pagination.num = (int16_t)time_traveler_num_data_points();
   snprintf(model->pagination.text, sizeof(model->pagination.text), "-/%d",
            model->pagination.num);
 
   time_t now = time(NULL);
   struct tm *current_local = localtime(&now);
-  time_traveller_view_model_set_time(model, current_local->tm_hour,
+  time_traveler_view_model_set_time(model, current_local->tm_hour,
                                      current_local->tm_min);
   strcpy(model->relative_info.text, "LOADING CITIES...");
 
-  time_traveller_view_model_fill_colors(model, COLOR_APP_BACKGROUND);
-  time_traveller_view_model_fill_night_mode(model, false);
+  time_traveler_view_model_fill_colors(model, COLOR_APP_BACKGROUND);
+  time_traveler_view_model_fill_night_mode(model, false);
 
-  time_traveller_main_window_view_model_announce_changed(model);
+  time_traveler_main_window_view_model_announce_changed(model);
 }
 
-void time_traveller_view_model_fill_night_mode(
+void time_traveler_view_model_fill_night_mode(
     WorldClockMainWindowViewModel *model, bool is_night) {
   model->is_night = is_night;
   if (is_night) {
@@ -183,10 +183,10 @@ void time_traveller_view_model_fill_night_mode(
     model->bg_color.top = COLOR_APP_BACKGROUND;
     model->bg_color.bottom = COLOR_APP_BACKGROUND;
   }
-  time_traveller_main_window_view_model_announce_changed(model);
+  time_traveler_main_window_view_model_announce_changed(model);
 }
 
-void time_traveller_view_model_deinit(WorldClockMainWindowViewModel *model) {}
+void time_traveler_view_model_deinit(WorldClockMainWindowViewModel *model) {}
 
 // ============================================================
 // 49 Casio cities: names only (offsets/day/night come from JS)
@@ -276,8 +276,8 @@ static CityCoordinates s_city_coordinates[] = {
 //   bytes 0-1: offset_minutes (int16, big-endian)
 //   byte 2:    day_label (0=today, 1=tomorrow, 255=yesterday)
 //   byte 3:    is_night (0 or 1)
-void time_traveller_data_apply_js_blob(const uint8_t *blob, uint16_t length) {
-  int num_cities = time_traveller_num_data_points();
+void time_traveler_data_apply_js_blob(const uint8_t *blob, uint16_t length) {
+  int num_cities = time_traveler_num_data_points();
   int received = length / 4;
   int count = (received < num_cities) ? received : num_cities;
 
@@ -293,37 +293,37 @@ void time_traveller_data_apply_js_blob(const uint8_t *blob, uint16_t length) {
   }
 }
 
-CityCoordinates *time_traveller_get_city_coordinates(int city_index) {
-  if (city_index < 0 || city_index >= time_traveller_num_data_points()) {
+CityCoordinates *time_traveler_get_city_coordinates(int city_index) {
+  if (city_index < 0 || city_index >= time_traveler_num_data_points()) {
     return NULL;
   }
   return &s_city_coordinates[city_index];
 }
 
-int time_traveller_num_data_points(void) { return ARRAY_LENGTH(s_data_points); }
+int time_traveler_num_data_points(void) { return ARRAY_LENGTH(s_data_points); }
 
-WorldClockDataPoint *time_traveller_data_point_at(int idx) {
-  if (idx < 0 || idx > time_traveller_num_data_points() - 1) {
+WorldClockDataPoint *time_traveler_data_point_at(int idx) {
+  if (idx < 0 || idx > time_traveler_num_data_points() - 1) {
     return NULL;
   }
 
   return &s_data_points[idx];
 }
 
-int time_traveller_index_of_data_point(WorldClockDataPoint *dp) {
-  for (int i = 0; i < time_traveller_num_data_points(); i++) {
-    if (dp == time_traveller_data_point_at(i)) {
+int time_traveler_index_of_data_point(WorldClockDataPoint *dp) {
+  for (int i = 0; i < time_traveler_num_data_points(); i++) {
+    if (dp == time_traveler_data_point_at(i)) {
       return i;
     }
   }
   return -1;
 }
 
-WorldClockDataPoint *time_traveller_data_point_delta(WorldClockDataPoint *dp,
+WorldClockDataPoint *time_traveler_data_point_delta(WorldClockDataPoint *dp,
                                                      int delta) {
-  int idx = time_traveller_index_of_data_point(dp);
+  int idx = time_traveler_index_of_data_point(dp);
   if (idx < 0) {
     return NULL;
   }
-  return time_traveller_data_point_at(idx + delta);
+  return time_traveler_data_point_at(idx + delta);
 }

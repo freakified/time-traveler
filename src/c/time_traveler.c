@@ -1,9 +1,9 @@
 #include "metrics.h"
-#include "time_traveller_main_window.h"
-#include "time_traveller_private.h"
-#include "time_traveller_data.h"
-#include "time_traveller_messaging.h"
-#include "time_traveller_overlay.h"
+#include "time_traveler_main_window.h"
+#include "time_traveler_private.h"
+#include "time_traveler_data.h"
+#include "time_traveler_messaging.h"
+#include "time_traveler_overlay.h"
 #include <pebble.h>
 
 #define PERSIST_KEY_USER_CITY_INDEX 100
@@ -11,17 +11,17 @@
 
 static void set_data_point(WorldClockData *data, WorldClockDataPoint *dp) {
   data->data_point = dp;
-  time_traveller_view_model_fill_all(&data->view_model, dp);
+  time_traveler_view_model_fill_all(&data->view_model, dp);
 }
 
 static void prv_city_data_received(const uint8_t *blob, uint16_t length,
                                      int8_t user_city_index, void *context) {
-  WorldClockData *data = window_get_user_data(time_traveller_main_window_get());
+  WorldClockData *data = window_get_user_data(time_traveler_main_window_get());
   if (!data) return;
 
   data->user_city_index = user_city_index;
 
-  time_traveller_data_apply_js_blob(blob, length);
+  time_traveler_data_apply_js_blob(blob, length);
 
   // Cache identifying data for next startup
   persist_write_int(PERSIST_KEY_USER_CITY_INDEX, user_city_index);
@@ -29,12 +29,12 @@ static void prv_city_data_received(const uint8_t *blob, uint16_t length,
 
   // Apply to current city and refresh display
   if (data->data_point) {
-    time_traveller_view_model_fill_all(&data->view_model, data->data_point);
+    time_traveler_view_model_fill_all(&data->view_model, data->data_point);
   }
 
   // If we have a user city index and haven't initialized yet, start there
-  if (user_city_index >= 0 && user_city_index < time_traveller_num_data_points()) {
-    WorldClockDataPoint *user_city = time_traveller_data_point_at(user_city_index);
+  if (user_city_index >= 0 && user_city_index < time_traveler_num_data_points()) {
+    WorldClockDataPoint *user_city = time_traveler_data_point_at(user_city_index);
     if (user_city && data->data_point != user_city) {
       set_data_point(data, user_city);
     }
@@ -42,7 +42,7 @@ static void prv_city_data_received(const uint8_t *blob, uint16_t length,
 
   // Show/hide arrow for the initial city (no scroll animation on launch)
   if (data->gps_arrow_layer) {
-    int current_city_index = time_traveller_index_of_data_point(data->data_point);
+    int current_city_index = time_traveler_index_of_data_point(data->data_point);
     bool show_arrow = (data->user_city_index >= 0 &&
                        current_city_index == data->user_city_index);
     layer_set_hidden(data->gps_arrow_layer, !show_arrow);
@@ -91,28 +91,28 @@ static void prv_city_data_received(const uint8_t *blob, uint16_t length,
     }
   }
   if (data->data_point) {
-    time_traveller_main_window_update_night_mode(data);
+    time_traveler_main_window_update_night_mode(data);
   }
 }
 
 static void prv_handle_minute_tick(struct tm *tick_time, TimeUnits units_changed) {
-  WorldClockData *data = window_get_user_data(time_traveller_main_window_get());
+  WorldClockData *data = window_get_user_data(time_traveler_main_window_get());
 
-  time_traveller_main_window_update_status_bar_time();
+  time_traveler_main_window_update_status_bar_time();
 
   if (data->data_point) {
     WorldClockDataViewNumbers numbers =
-        time_traveller_data_point_view_model_numbers(data->data_point);
-    time_traveller_view_model_fill_numbers(&data->view_model, numbers,
+        time_traveler_data_point_view_model_numbers(data->data_point);
+    time_traveler_view_model_fill_numbers(&data->view_model, numbers,
                                         data->data_point);
-    const GRect map_rect = time_traveller_calibrated_map_rect(data);
-    time_traveller_overlay_update(&data->overlay, map_rect.size.w, map_rect.size.h);
+    const GRect map_rect = time_traveler_calibrated_map_rect(data);
+    time_traveler_overlay_update(&data->overlay, map_rect.size.w, map_rect.size.h);
     layer_mark_dirty(data->map_layer);
   } else {
     time_t now = time(NULL);
     struct tm *current_local = localtime(&now);
-    time_traveller_view_model_set_time(&data->view_model, current_local->tm_hour, current_local->tm_min);
-    time_traveller_main_window_force_view_model_change((struct WorldClockMainWindowViewModel *)&data->view_model);
+    time_traveler_view_model_set_time(&data->view_model, current_local->tm_hour, current_local->tm_min);
+    time_traveler_main_window_force_view_model_change((struct WorldClockMainWindowViewModel *)&data->view_model);
   }
 }
 
@@ -122,43 +122,43 @@ static void init() {
 
   // Check for cached city data
   if (persist_exists(PERSIST_KEY_CITY_DATA_BLOB)) {
-    uint8_t blob[time_traveller_num_data_points() * 4];
+    uint8_t blob[time_traveler_num_data_points() * 4];
     int read = persist_read_data(PERSIST_KEY_CITY_DATA_BLOB, blob, sizeof(blob));
     if (read > 0) {
-      time_traveller_data_apply_js_blob(blob, (uint16_t)read);
+      time_traveler_data_apply_js_blob(blob, (uint16_t)read);
     }
   }
 
   int start_index = -1;
   if (persist_exists(PERSIST_KEY_USER_CITY_INDEX)) {
     start_index = persist_read_int(PERSIST_KEY_USER_CITY_INDEX);
-    if (start_index < 0 || start_index >= time_traveller_num_data_points()) {
+    if (start_index < 0 || start_index >= time_traveler_num_data_points()) {
       start_index = -1;
     }
   }
 
   if (start_index >= 0) {
-    WorldClockDataPoint *dp = time_traveller_data_point_at(start_index);
+    WorldClockDataPoint *dp = time_traveler_data_point_at(start_index);
     set_data_point(data, dp);
     data->user_city_index = (int8_t)start_index;
   } else {
     data->data_point = NULL;
     data->user_city_index = -1;
-    time_traveller_view_model_fill_loading(&data->view_model);
+    time_traveler_view_model_fill_loading(&data->view_model);
   }
 
-  time_traveller_main_window_push(data);
-  time_traveller_messaging_init(prv_city_data_received, data);
+  time_traveler_main_window_push(data);
+  time_traveler_messaging_init(prv_city_data_received, data);
 
   tick_timer_service_subscribe(MINUTE_UNIT, prv_handle_minute_tick);
 }
 
 static void deinit() {
-  WorldClockData *data = window_get_user_data(time_traveller_main_window_get());
+  WorldClockData *data = window_get_user_data(time_traveler_main_window_get());
   tick_timer_service_unsubscribe();
-  time_traveller_messaging_deinit();
-  window_destroy(time_traveller_main_window_get());
-  time_traveller_overlay_deinit(&data->overlay);
+  time_traveler_messaging_deinit();
+  window_destroy(time_traveler_main_window_get());
+  time_traveler_overlay_deinit(&data->overlay);
   free(data);
 }
 

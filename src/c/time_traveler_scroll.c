@@ -1,23 +1,23 @@
-#include "time_traveller_scroll.h"
-#include "time_traveller_main_window.h"
-#include "time_traveller_animations.h"
-#include "time_traveller_data.h"
+#include "time_traveler_scroll.h"
+#include "time_traveler_main_window.h"
+#include "time_traveler_animations.h"
+#include "time_traveler_data.h"
 #include "metrics.h"
 #include <pebble.h>
 
 static void after_scroll_swap_text(Animation *animation, bool finished,
                                    void *context) {
-  WorldClockData *data = window_get_user_data(time_traveller_main_window_get());
+  WorldClockData *data = window_get_user_data(time_traveler_main_window_get());
   WorldClockDataPoint *data_point = context;
 
-  time_traveller_view_model_fill_strings_and_pagination(&data->view_model,
+  time_traveler_view_model_fill_strings_and_pagination(&data->view_model,
                                                      data_point);
-  time_traveller_view_model_fill_numbers(
-      &data->view_model, time_traveller_data_point_view_model_numbers(data_point),
+  time_traveler_view_model_fill_numbers(
+      &data->view_model, time_traveler_data_point_view_model_numbers(data_point),
       data_point);
 
   if (data->gps_arrow_layer) {
-    int current_city_index = time_traveller_index_of_data_point(data_point);
+    int current_city_index = time_traveler_index_of_data_point(data_point);
     bool show_arrow = (data->user_city_index >= 0 &&
                        current_city_index == data->user_city_index);
     layer_set_hidden(data->gps_arrow_layer, !show_arrow);
@@ -129,8 +129,8 @@ static Animation *create_inbound_anim(WorldClockData *data,
 
 static void prv_scroll_animation_stopped(Animation *animation, bool finished,
                                           void *context) {
-  WorldClockData *data = window_get_user_data(time_traveller_main_window_get());
-  time_traveller_main_window_force_view_model_change((struct WorldClockMainWindowViewModel *)&data->view_model);
+  WorldClockData *data = window_get_user_data(time_traveler_main_window_get());
+  time_traveler_main_window_force_view_model_change((struct WorldClockMainWindowViewModel *)&data->view_model);
 }
 
 static Animation *animation_for_scroll(WorldClockData *data,
@@ -146,11 +146,11 @@ static Animation *animation_for_scroll(WorldClockData *data,
                          next_data_point);
   Animation *in_text = create_inbound_anim(data, direction);
 
-  Animation *number_animation = time_traveller_create_view_model_animation_numbers(
+  Animation *number_animation = time_traveler_create_view_model_animation_numbers(
       view_model, next_data_point);
   animation_set_duration(number_animation, LAYOUT_SCROLL_DURATION_MS * 2);
 
-  Animation *bg_animation = time_traveller_create_view_model_animation_bgcolor(
+  Animation *bg_animation = time_traveler_create_view_model_animation_bgcolor(
       view_model, next_data_point);
   animation_set_duration(bg_animation, LAYOUT_BACKGROUND_SCROLL_DURATION_MS);
   animation_set_reverse(bg_animation, (direction == ScrollDirectionDown));
@@ -178,10 +178,10 @@ static Animation *animation_for_bounce(WorldClockData *data,
   return inbound;
 }
 
-void time_traveller_scroll_ask(WorldClockData *data, ScrollDirection direction) {
+void time_traveler_scroll_ask(WorldClockData *data, ScrollDirection direction) {
   int delta = direction == ScrollDirectionUp ? -1 : +1;
   WorldClockDataPoint *next_data_point =
-      time_traveller_data_point_delta(data->data_point, delta);
+      time_traveler_data_point_delta(data->data_point, delta);
 
   Animation *scroll_animation;
 
@@ -192,12 +192,12 @@ void time_traveller_scroll_ask(WorldClockData *data, ScrollDirection direction) 
   if (!next_data_point) {
     scroll_animation = animation_for_bounce(data, direction);
   } else {
-    int next_city_index = time_traveller_index_of_data_point(next_data_point);
+    int next_city_index = time_traveler_index_of_data_point(next_data_point);
 
     data->data_point = next_data_point;
 
-    time_traveller_main_window_update_night_mode(data);
-    time_traveller_main_window_start_dot_animation(data, next_city_index);
+    time_traveler_main_window_update_night_mode(data);
+    time_traveler_main_window_start_dot_animation(data, next_city_index);
 
     scroll_animation = animation_for_scroll(data, direction, next_data_point);
   }
@@ -207,12 +207,12 @@ void time_traveller_scroll_ask(WorldClockData *data, ScrollDirection direction) 
   data->previous_animation = scroll_animation;
 }
 
-void time_traveller_scroll_up_click_handler(ClickRecognizerRef recognizer, void *context) {
+void time_traveler_scroll_up_click_handler(ClickRecognizerRef recognizer, void *context) {
   WorldClockData *data = context;
-  time_traveller_scroll_ask(data, ScrollDirectionUp);
+  time_traveler_scroll_ask(data, ScrollDirectionUp);
 }
 
-void time_traveller_scroll_down_click_handler(ClickRecognizerRef recognizer, void *context) {
+void time_traveler_scroll_down_click_handler(ClickRecognizerRef recognizer, void *context) {
   WorldClockData *data = context;
-  time_traveller_scroll_ask(data, ScrollDirectionDown);
+  time_traveler_scroll_ask(data, ScrollDirectionDown);
 }

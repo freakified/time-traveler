@@ -1,5 +1,5 @@
 {
-  "name": "time-traveller",
+  "name": "time-traveler",
   "author": "Freakified",
   "version": "1.0.0",
   "keywords": [
@@ -8,7 +8,7 @@
   "private": true,
   "dependencies": {},
   "pebble": {
-    "displayName": "Time Traveller",
+    "displayName": "Time Traveler",
     "uuid": "29d0fd74-736a-49cd-83de-204775c46d26",
     "sdkVersion": "3",
     "enableMultiJS": true,

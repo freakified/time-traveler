@@ -12,5 +12,5 @@ typedef struct {
   int32_t subsolar_longitude; // in TRIG_MAX_ANGLE units
 } SolarPosition;
 
-SolarPosition time_traveller_solar_position(time_t current_time);
-void time_traveller_daylight_interval(int32_t latitude, SolarPosition solar, uint16_t map_width, uint8_t *start_out, uint8_t *end_out);
+SolarPosition time_traveler_solar_position(time_t current_time);
+void time_traveler_daylight_interval(int32_t latitude, SolarPosition solar, uint16_t map_width, uint8_t *start_out, uint8_t *end_out);

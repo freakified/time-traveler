@@ -1,29 +1,29 @@
 #pragma once
 
 #include <pebble.h>
-#include "time_traveller_data.h"
+#include "time_traveler_data.h"
 
-uint8_t time_traveller_ui_palette_size(GBitmapFormat format);
+uint8_t time_traveler_ui_palette_size(GBitmapFormat format);
 
-uint8_t time_traveller_ui_luminance_steps(GColor color);
+uint8_t time_traveler_ui_luminance_steps(GColor color);
 
-uint8_t time_traveller_ui_blend_channel(uint8_t background, uint8_t foreground,
+uint8_t time_traveler_ui_blend_channel(uint8_t background, uint8_t foreground,
                                      uint8_t luminance);
 
-GColor time_traveller_ui_palette_color_for_luminance(uint8_t luminance,
+GColor time_traveler_ui_palette_color_for_luminance(uint8_t luminance,
                                                   GColor background,
                                                   GColor foreground);
 
-void time_traveller_ui_recolor(GBitmap *bitmap);
+void time_traveler_ui_recolor(GBitmap *bitmap);
 
-void time_traveller_ui_recolor_night(GBitmap *bitmap);
+void time_traveler_ui_recolor_night(GBitmap *bitmap);
 
-int16_t time_traveller_ui_clamp_x(int16_t x, int16_t width);
+int16_t time_traveler_ui_clamp_x(int16_t x, int16_t width);
 
-void time_traveller_ui_draw_segment(GContext *ctx, int16_t y, int16_t start_x,
+void time_traveler_ui_draw_segment(GContext *ctx, int16_t y, int16_t start_x,
                                  int16_t end_x, GColor color);
 
-void time_traveller_ui_draw_bitmap_segment(GContext *ctx, const GBitmap *bitmap,
+void time_traveler_ui_draw_bitmap_segment(GContext *ctx, const GBitmap *bitmap,
                                         const GRect map_rect, int16_t row,
                                         int16_t start_x, int16_t end_x);
 

@@ -1,4 +1,4 @@
-#include "time_traveller_solar_math.h"
+#include "time_traveler_solar_math.h"
 
 // ACOS_LOOKUP maps input [-TRIG_MAX_RATIO, TRIG_MAX_RATIO] to angle [0, TRIG_MAX_ANGLE/2]
 // Array size is 256
@@ -53,7 +53,7 @@ int32_t fixed_tanProduct(int32_t lat_angle, int32_t decl_angle) {
     return (int32_t)result;
 }
 
-SolarPosition time_traveller_solar_position(time_t current_time) {
+SolarPosition time_traveler_solar_position(time_t current_time) {
   struct tm *t = gmtime(&current_time);
   
   int32_t elapsed_seconds = t->tm_hour * 3600 + t->tm_min * 60 + t->tm_sec;
@@ -107,7 +107,7 @@ static uint8_t longitude_to_pixel(int32_t longitude, uint16_t width) {
   return (uint8_t)px;
 }
 
-void time_traveller_daylight_interval(int32_t latitude, SolarPosition solar, uint16_t width, uint8_t *start_out, uint8_t *end_out) {
+void time_traveler_daylight_interval(int32_t latitude, SolarPosition solar, uint16_t width, uint8_t *start_out, uint8_t *end_out) {
   int32_t tan_product = fixed_tanProduct(latitude, solar.declination);
   
   if (tan_product >= TRIG_MAX_RATIO) {

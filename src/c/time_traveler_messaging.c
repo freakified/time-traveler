@@ -1,5 +1,5 @@
-#include "time_traveller_messaging.h"
-#include "time_traveller_overlay.h"
+#include "time_traveler_messaging.h"
+#include "time_traveler_overlay.h"
 #include "message_keys.auto.h"
 #include <string.h>
 
@@ -81,7 +81,7 @@ static void prv_outbox_failed(DictionaryIterator *iter, AppMessageResult reason,
 
 static void prv_outbox_sent(DictionaryIterator *iter, void *context) {}
 
-void time_traveller_messaging_init(WorldClockMessageCityDataCallback on_city_data_received,
+void time_traveler_messaging_init(WorldClockMessageCityDataCallback on_city_data_received,
                                 void *context) {
   memset(&s_messaging_ctx, 0, sizeof(MessagingContext));
   s_messaging_ctx.on_city_data_received = on_city_data_received;
@@ -91,15 +91,15 @@ void time_traveller_messaging_init(WorldClockMessageCityDataCallback on_city_dat
   app_message_register_inbox_dropped(prv_inbox_dropped);
   app_message_register_outbox_failed(prv_outbox_failed);
   app_message_register_outbox_sent(prv_outbox_sent);
-  app_message_open(time_traveller_MESSAGING_INBOX_SIZE,
-                   time_traveller_MESSAGING_OUTBOX_SIZE);
+  app_message_open(time_traveler_MESSAGING_INBOX_SIZE,
+                   time_traveler_MESSAGING_OUTBOX_SIZE);
 }
 
-void time_traveller_messaging_deinit(void) {
+void time_traveler_messaging_deinit(void) {
   app_message_deregister_callbacks();
 }
 
-void time_traveller_messaging_request_city_data(void) {
+void time_traveler_messaging_request_city_data(void) {
   DictionaryIterator *iter = NULL;
   AppMessageResult result = app_message_outbox_begin(&iter);
   if (result != APP_MSG_OK || !iter) {

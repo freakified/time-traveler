@@ -40,7 +40,7 @@ typedef struct {
 } WorldClockMainWindowViewModel;
 
 //! calls model's .announce_changed or does nothing if NULL
-void time_traveller_main_window_view_model_announce_changed(
+void time_traveler_main_window_view_model_announce_changed(
     WorldClockMainWindowViewModel *model);
 
 typedef struct {
@@ -56,47 +56,47 @@ typedef struct {
   int16_t offset;
 } WorldClockDataViewNumbers;
 
-void time_traveller_view_model_set_time(WorldClockMainWindowViewModel *model,
+void time_traveler_view_model_set_time(WorldClockMainWindowViewModel *model,
                                         int16_t hour, int16_t minute);
-void time_traveller_view_model_set_relative_info(
+void time_traveler_view_model_set_relative_info(
     WorldClockMainWindowViewModel *model, int16_t offset_hours,
     WorldClockDataPoint *data_point);
 
 WorldClockDataViewNumbers
-time_traveller_data_point_view_model_numbers(WorldClockDataPoint *data_point);
+time_traveler_data_point_view_model_numbers(WorldClockDataPoint *data_point);
 
 GDrawCommandImage *
-time_traveller_data_point_create_icon(WorldClockDataPoint *data_point);
+time_traveler_data_point_create_icon(WorldClockDataPoint *data_point);
 
-void time_traveller_view_model_fill_strings_and_pagination(
+void time_traveler_view_model_fill_strings_and_pagination(
     WorldClockMainWindowViewModel *view_model, WorldClockDataPoint *data_point);
 
-void time_traveller_view_model_fill_numbers(
+void time_traveler_view_model_fill_numbers(
     WorldClockMainWindowViewModel *model, WorldClockDataViewNumbers numbers,
     WorldClockDataPoint *data_point);
 
-void time_traveller_view_model_fill_all(WorldClockMainWindowViewModel *model,
+void time_traveler_view_model_fill_all(WorldClockMainWindowViewModel *model,
                                         WorldClockDataPoint *data_point);
 
-void time_traveller_view_model_fill_colors(WorldClockMainWindowViewModel *model,
+void time_traveler_view_model_fill_colors(WorldClockMainWindowViewModel *model,
                                            GColor color);
 
-void time_traveller_view_model_fill_night_mode(
+void time_traveler_view_model_fill_night_mode(
     WorldClockMainWindowViewModel *model, bool is_night);
-void time_traveller_view_model_fill_loading(
+void time_traveler_view_model_fill_loading(
     WorldClockMainWindowViewModel *model);
 
-void time_traveller_view_model_deinit(WorldClockMainWindowViewModel *model);
+void time_traveler_view_model_deinit(WorldClockMainWindowViewModel *model);
 
-GColor time_traveller_data_point_color(WorldClockDataPoint *data_point,
+GColor time_traveler_data_point_color(WorldClockDataPoint *data_point,
                                        bool is_night);
 
-int time_traveller_num_data_points(void);
+int time_traveler_num_data_points(void);
 
-WorldClockDataPoint *time_traveller_data_point_at(int idx);
-WorldClockDataPoint *time_traveller_data_point_delta(WorldClockDataPoint *dp,
+WorldClockDataPoint *time_traveler_data_point_at(int idx);
+WorldClockDataPoint *time_traveler_data_point_delta(WorldClockDataPoint *dp,
                                                      int delta);
-int time_traveller_index_of_data_point(WorldClockDataPoint *dp);
+int time_traveler_index_of_data_point(WorldClockDataPoint *dp);
 
 // City coordinates for map display
 typedef struct {
@@ -104,9 +104,9 @@ typedef struct {
   float latitude;
 } CityCoordinates;
 
-CityCoordinates *time_traveller_get_city_coordinates(int city_index);
+CityCoordinates *time_traveler_get_city_coordinates(int city_index);
 
 extern WorldClockDataPoint s_data_points[];
 
 // Dynamic city data from JS
-void time_traveller_data_apply_js_blob(const uint8_t *blob, uint16_t length);
+void time_traveler_data_apply_js_blob(const uint8_t *blob, uint16_t length);

@@ -1,8 +1,8 @@
 #pragma once
 
 #include <pebble.h>
-#include "time_traveller_data.h"
-#include "time_traveller_overlay.h"
+#include "time_traveler_data.h"
+#include "time_traveler_overlay.h"
 
 typedef struct {
   WorldClockDataPoint *data_point;
@@ -29,7 +29,7 @@ typedef struct {
   WorldClockOverlay overlay;
 } WorldClockData;
 
-bool time_traveller_is_city_index_night(WorldClockData *data, int city_index);
-GPoint time_traveller_lon_lat_to_screen(float longitude, float latitude,
+bool time_traveler_is_city_index_night(WorldClockData *data, int city_index);
+GPoint time_traveler_lon_lat_to_screen(float longitude, float latitude,
                                      const GRect map_bounds);
-GRect time_traveller_calibrated_map_rect(const WorldClockData *data);
+GRect time_traveler_calibrated_map_rect(const WorldClockData *data);
