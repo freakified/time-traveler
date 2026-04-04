@@ -272,42 +272,10 @@ static void gps_arrow_update_proc(Layer *layer, GContext *ctx) {
   gdraw_command_image_draw(ctx, command_image, bounds.origin);
   gdraw_command_image_destroy(command_image);
 }
-
-static void prv_overlay_received(uint16_t map_width, uint16_t map_height,
-                                  uint32_t version, uint16_t total_rows,
-                                  uint16_t row_start, uint16_t row_count,
-                                  const uint8_t *row_data, uint16_t row_data_len,
-                                  void *context) {
-  WorldClockData *data = window_get_user_data(s_main_window);
-  if (!data) {
-    return;
-  }
-
-  if (data->overlay.map_width != map_width ||
-      data->overlay.map_height != map_height ||
-      data->overlay.expected_rows != total_rows) {
-    time_traveller_overlay_reset(&data->overlay, version, map_width, map_height,
-                              total_rows);
-  }
-
-  bool complete = time_traveller_overlay_feed_chunk(
-      &data->overlay, row_start, row_count, row_data, row_data_len);
-
-  if (complete) {
-    data->overlay.valid = true;
-    time_traveller_overlay_cancel_timeout(&data->overlay);
-    time_traveller_overlay_save_cache(&data->overlay);
-    if (data->map_layer) {
-      layer_mark_dirty(data->map_layer);
-    }
-  }
-}
-
 static void set_data_point(WorldClockData *data, WorldClockDataPoint *dp) {
   data->data_point = dp;
   time_traveller_view_model_fill_all(&data->view_model, dp);
 }
-
 static void prv_city_data_received(const uint8_t *blob, uint16_t length,
                                      int8_t user_city_index, void *context) {
   WorldClockData *data = window_get_user_data(s_main_window);
@@ -409,10 +377,8 @@ static void prv_handle_minute_tick(struct tm *tick_time, TimeUnits units_changed
   time_traveller_view_model_fill_numbers(&data->view_model, numbers,
                                       data->data_point);
   const GRect map_rect = time_traveller_calibrated_map_rect(data);
-  if (!data->overlay.valid) {
-    time_traveller_overlay_start_timeout(&data->overlay);
-  }
-  time_traveller_messaging_request_overlay(map_rect.size.w, map_rect.size.h);
+  time_traveller_overlay_update(&data->overlay, map_rect.size.w, map_rect.size.h);
+  layer_mark_dirty(data->map_layer);
 }
 
 static void update_ampm_position(WorldClockData *data) {
@@ -590,18 +556,10 @@ static void main_window_load(Window *window) {
   update_ampm_position(data);
 
   const GRect map_rect = time_traveller_calibrated_map_rect(data);
-  time_traveller_overlay_load_cache(&data->overlay, map_rect.size.w,
-                                 map_rect.size.h);
-
-  if (data->overlay.valid) {
-    layer_mark_dirty(data->map_layer);
-  } else {
-    time_traveller_overlay_start_timeout(&data->overlay);
-  }
+  time_traveller_overlay_update(&data->overlay, map_rect.size.w, map_rect.size.h);
+  layer_mark_dirty(data->map_layer);
 
   prv_update_night_mode(data);
-
-  time_traveller_messaging_request_overlay(map_rect.size.w, map_rect.size.h);
 }
 
 static void main_window_unload(Window *window) {
@@ -866,7 +824,7 @@ static void init() {
                                               .load = main_window_load,
                                               .unload = main_window_unload,
                                           });
-  time_traveller_messaging_init(prv_overlay_received, prv_city_data_received, data);
+  time_traveller_messaging_init(prv_city_data_received, data);
 
   window_stack_push(s_main_window, true);
   update_status_bar_time();
