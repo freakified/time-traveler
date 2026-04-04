@@ -69,6 +69,11 @@
           "targetPlatforms": [
             "gabbro"
           ]
+        },
+        {
+          "type": "raw",
+          "name": "GPS_ARROW",
+          "file": "images/gps-arrow.pdc"
         }
       ]
     }

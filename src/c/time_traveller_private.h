@@ -24,6 +24,8 @@ typedef struct {
   GPoint target_dot_position;
   int32_t dot_animation_progress;
   bool dot_animation_active;
+  int8_t user_city_index;
+  Layer *gps_arrow_layer;
   WorldClockOverlay overlay;
 } WorldClockData;
 
