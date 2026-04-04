@@ -143,7 +143,7 @@ void time_traveller_view_model_fill_loading(
   memset(model, 0, sizeof(*model));
   model->announce_changed = annouce_changed;
 
-  model->city = "-";
+  model->city = "WELCOME";
   model->pagination.idx = 0;
   model->pagination.num = (int16_t)time_traveller_num_data_points();
   snprintf(model->pagination.text, sizeof(model->pagination.text), "-/%d",
@@ -153,7 +153,7 @@ void time_traveller_view_model_fill_loading(
   struct tm *current_local = localtime(&now);
   time_traveller_view_model_set_time(model, current_local->tm_hour,
                                      current_local->tm_min);
-  strcpy(model->relative_info.text, "-");
+  strcpy(model->relative_info.text, "LOADING CITIES...");
 
   time_traveller_view_model_fill_colors(model, COLOR_APP_BACKGROUND);
   time_traveller_view_model_fill_night_mode(model, false);
