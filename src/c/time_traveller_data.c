@@ -130,6 +130,7 @@ void time_traveller_view_model_fill_night_mode(WorldClockMainWindowViewModel *mo
     model->bg_color.top = COLOR_APP_BACKGROUND;
     model->bg_color.bottom = COLOR_APP_BACKGROUND;
   }
+  time_traveller_main_window_view_model_announce_changed(model);
 }
 
 void time_traveller_view_model_deinit(WorldClockMainWindowViewModel *model) {

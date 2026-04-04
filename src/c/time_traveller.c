@@ -18,8 +18,12 @@
 #define GPS_ARROW_HEIGHT (LAYOUT_GPS_ARROW_HEIGHT)
 
 #define WORLD_MAP_TOP LAYOUT_WORLD_MAP_TOP
+#define PERSIST_KEY_USER_CITY_INDEX 100
+#define PERSIST_KEY_CITY_DATA_BLOB 101
 
 static Window *s_main_window;
+
+static void prv_update_night_mode(WorldClockData *data);
 
 static GPoint interpolate_points(GPoint start, GPoint end, int32_t progress,
                                  int32_t max_progress) {
@@ -285,6 +289,10 @@ static void prv_city_data_received(const uint8_t *blob, uint16_t length,
 
   time_traveller_data_apply_js_blob(blob, length);
 
+  // Cache identifying data for next startup
+  persist_write_int(PERSIST_KEY_USER_CITY_INDEX, user_city_index);
+  persist_write_data(PERSIST_KEY_CITY_DATA_BLOB, blob, length);
+
   // Apply to current city and refresh display
   time_traveller_view_model_fill_all(&data->view_model, data->data_point);
 
@@ -346,6 +354,7 @@ static void prv_city_data_received(const uint8_t *blob, uint16_t length,
       layer_mark_dirty(text_layer_get_layer(data->city_layer));
     }
   }
+  prv_update_night_mode(data);
 }
 
 static void update_status_bar_time() {
@@ -813,8 +822,26 @@ static void init() {
   WorldClockData *data = malloc(sizeof(WorldClockData));
   memset(data, 0, sizeof(WorldClockData));
 
-  WorldClockDataPoint *dp = time_traveller_data_point_at(0);
+  // Check for cached city data
+  if (persist_exists(PERSIST_KEY_CITY_DATA_BLOB)) {
+    uint8_t blob[time_traveller_num_data_points() * 4];
+    int read = persist_read_data(PERSIST_KEY_CITY_DATA_BLOB, blob, sizeof(blob));
+    if (read > 0) {
+      time_traveller_data_apply_js_blob(blob, (uint16_t)read);
+    }
+  }
+
+  int start_index = 0;
+  if (persist_exists(PERSIST_KEY_USER_CITY_INDEX)) {
+    start_index = persist_read_int(PERSIST_KEY_USER_CITY_INDEX);
+    if (start_index < 0 || start_index >= time_traveller_num_data_points()) {
+      start_index = 0;
+    }
+  }
+
+  WorldClockDataPoint *dp = time_traveller_data_point_at(start_index);
   set_data_point(data, dp);
+  data->user_city_index = (int8_t)start_index;
 
   s_main_window = window_create();
   window_set_click_config_provider_with_context(s_main_window,
