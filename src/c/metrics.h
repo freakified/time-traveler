@@ -20,7 +20,7 @@
 #define COLOR_APP_BACKGROUND PBL_IF_COLOR_ELSE(GColorPictonBlue, GColorWhite)
 
 #define COLOR_TEXT_DEFAULT_NIGHT GColorWhite
-#define COLOR_CROSSHAIR_NIGHT PBL_IF_COLOR_ELSE(GColorChromeYellow, GColorWhite)
+#define COLOR_CROSSHAIR_NIGHT PBL_IF_COLOR_ELSE(GColorBlack, GColorWhite)
 #define COLOR_DOT_FILL_NIGHT PBL_IF_COLOR_ELSE(GColorChromeYellow, GColorWhite)
 #define COLOR_DOT_FILL PBL_IF_COLOR_ELSE(GColorChromeYellow, GColorWhite)
 #define COLOR_DOT_OUTLINE_NIGHT GColorBlack

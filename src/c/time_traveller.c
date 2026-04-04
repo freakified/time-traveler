@@ -11,6 +11,8 @@
 
 #define MARGIN LAYOUT_MARGIN
 #define WORLD_MAP_BOTTOM_TRIM LAYOUT_WORLD_MAP_BOTTOM_TRIM
+#define OVERLAY_TOP_TRIM 3
+#define OVERLAY_BOTTOM_TRIM 3
 
 #define GPS_ARROW_WIDTH (LAYOUT_GPS_ARROW_WIDTH)
 #define GPS_ARROW_HEIGHT (LAYOUT_GPS_ARROW_HEIGHT)
@@ -140,7 +142,10 @@ static void prv_world_map_draw_overlay(WorldClockData *data, GContext *ctx,
                                 ? data->overlay.expected_rows
                                 : map_rect.size.h;
 
-  for (int16_t row = 0; row < row_count; ++row) {
+  const int16_t row_start = OVERLAY_TOP_TRIM;
+  const int16_t row_end = row_count - OVERLAY_BOTTOM_TRIM;
+
+  for (int16_t row = row_start; row < row_end; ++row) {
     uint8_t day_start_value, day_end_value;
     if (!time_traveller_overlay_query_row(&data->overlay, row, &day_start_value,
                                        &day_end_value)) {
