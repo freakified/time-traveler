@@ -272,6 +272,17 @@ static void gps_arrow_update_proc(Layer *layer, GContext *ctx) {
   GDrawCommandImage *command_image = gdraw_command_image_create_with_resource(RESOURCE_ID_GPS_ARROW);
   if (!command_image) return;
 
+  WorldClockData *data = window_get_user_data(s_main_window);
+  GColor color = data ? data->view_model.text_color : GColorBlack;
+
+  GDrawCommandList *command_list = gdraw_command_image_get_command_list(command_image);
+  uint32_t num_commands = gdraw_command_list_get_num_commands(command_list);
+  for (uint32_t i = 0; i < num_commands; i++) {
+    GDrawCommand *cmd = gdraw_command_list_get_command(command_list, i);
+    gdraw_command_set_stroke_color(cmd, color);
+    gdraw_command_set_fill_color(cmd, color);
+  }
+
   const GRect bounds = layer_get_bounds(layer);
   gdraw_command_image_draw(ctx, command_image, bounds.origin);
   gdraw_command_image_destroy(command_image);
