@@ -1,31 +1,39 @@
-#include <pebble.h>
-#include "metrics.h"
 #include "time_traveller_data.h"
+#include "metrics.h"
+#include <pebble.h>
 
-void time_traveller_main_window_view_model_announce_changed(WorldClockMainWindowViewModel *model) {
+void time_traveller_main_window_view_model_announce_changed(
+    WorldClockMainWindowViewModel *model) {
   if (model->announce_changed) {
     model->announce_changed((struct WorldClockMainWindowViewModel *)model);
   }
 }
 
-void time_traveller_view_model_set_time(WorldClockMainWindowViewModel *model, int16_t hour, int16_t minute) {
+void time_traveller_view_model_set_time(WorldClockMainWindowViewModel *model,
+                                        int16_t hour, int16_t minute) {
   model->time.hour = hour;
   model->time.minute = minute;
 
   if (clock_is_24h_style()) {
-    snprintf(model->time.text, sizeof(model->time.text), "%02d:%02d", model->time.hour, model->time.minute);
+    snprintf(model->time.text, sizeof(model->time.text), "%02d:%02d",
+             model->time.hour, model->time.minute);
     model->time.ampm[0] = '\0';
   } else {
     int display_hour = hour % 12;
-    if (display_hour == 0) display_hour = 12;
+    if (display_hour == 0)
+      display_hour = 12;
     const char *ampm = (hour < 12) ? "AM" : "PM";
-    snprintf(model->time.text, sizeof(model->time.text), "%d:%02d", display_hour, model->time.minute);
+    snprintf(model->time.text, sizeof(model->time.text), "%d:%02d",
+             display_hour, model->time.minute);
     strcpy(model->time.ampm, ampm);
   }
 }
 
-void time_traveller_view_model_set_relative_info(WorldClockMainWindowViewModel *model, int16_t relative_offset_minutes, WorldClockDataPoint *data_point) {
-  int16_t abs_minutes = (relative_offset_minutes < 0) ? -relative_offset_minutes : relative_offset_minutes;
+void time_traveller_view_model_set_relative_info(
+    WorldClockMainWindowViewModel *model, int16_t relative_offset_minutes,
+    WorldClockDataPoint *data_point) {
+  int16_t abs_minutes = (relative_offset_minutes < 0) ? -relative_offset_minutes
+                                                      : relative_offset_minutes;
   int16_t hours = abs_minutes / 60;
   int16_t mins = abs_minutes % 60;
   int sign = (relative_offset_minutes >= 0) ? 1 : -1;
@@ -41,17 +49,24 @@ void time_traveller_view_model_set_relative_info(WorldClockMainWindowViewModel *
 
   char offset_str[12];
   if (mins == 0) {
-    snprintf(offset_str, sizeof(offset_str), "%c%d HRS", sign > 0 ? '+' : '-', hours);
+    snprintf(offset_str, sizeof(offset_str), "%c%d HRS", sign > 0 ? '+' : '-',
+             hours);
   } else {
-    snprintf(offset_str, sizeof(offset_str), "%c%d:%02d HRS", sign > 0 ? '+' : '-', hours, mins);
+    snprintf(offset_str, sizeof(offset_str), "%c%d:%02d HRS",
+             sign > 0 ? '+' : '-', hours, mins);
   }
 
-  snprintf(model->relative_info.text, sizeof(model->relative_info.text), "%s, %s", day_str, offset_str);
+  snprintf(model->relative_info.text, sizeof(model->relative_info.text),
+           "%s, %s", day_str, offset_str);
 
   model->current_offset = relative_offset_minutes / 60;
 }
 
-WorldClockDataViewNumbers time_traveller_data_point_view_model_numbers(WorldClockDataPoint *data_point) {
+WorldClockDataViewNumbers
+time_traveller_data_point_view_model_numbers(WorldClockDataPoint *data_point) {
+  if (!data_point) {
+    return (WorldClockDataViewNumbers){0};
+  }
   time_t now = time(NULL);
   struct tm *current_local = localtime(&now);
 
@@ -61,7 +76,8 @@ WorldClockDataViewNumbers time_traveller_data_point_view_model_numbers(WorldCloc
   time_t city_seconds = gmt_seconds + (data_point->offset_minutes * 60);
   struct tm *city_time = localtime(&city_seconds);
 
-  int16_t relative_offset_minutes = data_point->offset_minutes - local_offset_minutes;
+  int16_t relative_offset_minutes =
+      data_point->offset_minutes - local_offset_minutes;
 
   return (WorldClockDataViewNumbers){
       .hour = city_time->tm_hour,
@@ -72,44 +88,81 @@ WorldClockDataViewNumbers time_traveller_data_point_view_model_numbers(WorldCloc
 
 int time_traveller_index_of_data_point(WorldClockDataPoint *dp);
 
-void time_traveller_view_model_fill_strings_and_pagination(WorldClockMainWindowViewModel *view_model, WorldClockDataPoint *data_point) {
+void time_traveller_view_model_fill_strings_and_pagination(
+    WorldClockMainWindowViewModel *view_model,
+    WorldClockDataPoint *data_point) {
   view_model->city = data_point->city;
 
-  view_model->pagination.idx = (int16_t)(1 + time_traveller_index_of_data_point(data_point));
+  view_model->pagination.idx =
+      (int16_t)(1 + time_traveller_index_of_data_point(data_point));
   view_model->pagination.num = (int16_t)time_traveller_num_data_points();
-  snprintf(view_model->pagination.text, sizeof(view_model->pagination.text), "%d/%d", view_model->pagination.idx, view_model->pagination.num);
+  snprintf(view_model->pagination.text, sizeof(view_model->pagination.text),
+           "%d/%d", view_model->pagination.idx, view_model->pagination.num);
   time_traveller_main_window_view_model_announce_changed(view_model);
 }
 
-void time_traveller_view_model_fill_numbers(WorldClockMainWindowViewModel *model, WorldClockDataViewNumbers numbers, WorldClockDataPoint *data_point) {
+void time_traveller_view_model_fill_numbers(
+    WorldClockMainWindowViewModel *model, WorldClockDataViewNumbers numbers,
+    WorldClockDataPoint *data_point) {
   time_traveller_view_model_set_time(model, numbers.hour, numbers.minute);
-  time_traveller_view_model_set_relative_info(model, numbers.offset, data_point);
+  time_traveller_view_model_set_relative_info(model, numbers.offset,
+                                              data_point);
 }
 
-void time_traveller_view_model_fill_colors(WorldClockMainWindowViewModel *model, GColor color) {
+void time_traveller_view_model_fill_colors(WorldClockMainWindowViewModel *model,
+                                           GColor color) {
   model->bg_color.top = color;
   model->bg_color.bottom = color;
   time_traveller_main_window_view_model_announce_changed(model);
 }
 
 GColor time_traveller_data_point_color(WorldClockDataPoint *data_point,
-                                    bool is_night) {
+                                       bool is_night) {
   return is_night ? COLOR_APP_BACKGROUND_NIGHT : COLOR_APP_BACKGROUND;
 }
 
-void time_traveller_view_model_fill_all(WorldClockMainWindowViewModel *model, WorldClockDataPoint *data_point) {
+void time_traveller_view_model_fill_all(WorldClockMainWindowViewModel *model,
+                                        WorldClockDataPoint *data_point) {
   WorldClockMainWindowViewModelFunc annouce_changed = model->announce_changed;
   memset(model, 0, sizeof(*model));
   model->announce_changed = annouce_changed;
   time_traveller_view_model_fill_strings_and_pagination(model, data_point);
-  time_traveller_view_model_fill_colors(model, time_traveller_data_point_color(data_point, false));
+  time_traveller_view_model_fill_colors(
+      model, time_traveller_data_point_color(data_point, false));
   time_traveller_view_model_fill_night_mode(model, false);
-  time_traveller_view_model_fill_numbers(model, time_traveller_data_point_view_model_numbers(data_point), data_point);
+  time_traveller_view_model_fill_numbers(
+      model, time_traveller_data_point_view_model_numbers(data_point),
+      data_point);
 
   time_traveller_main_window_view_model_announce_changed(model);
 }
 
-void time_traveller_view_model_fill_night_mode(WorldClockMainWindowViewModel *model, bool is_night) {
+void time_traveller_view_model_fill_loading(
+    WorldClockMainWindowViewModel *model) {
+  WorldClockMainWindowViewModelFunc annouce_changed = model->announce_changed;
+  memset(model, 0, sizeof(*model));
+  model->announce_changed = annouce_changed;
+
+  model->city = "-";
+  model->pagination.idx = 0;
+  model->pagination.num = (int16_t)time_traveller_num_data_points();
+  snprintf(model->pagination.text, sizeof(model->pagination.text), "-/%d",
+           model->pagination.num);
+
+  time_t now = time(NULL);
+  struct tm *current_local = localtime(&now);
+  time_traveller_view_model_set_time(model, current_local->tm_hour,
+                                     current_local->tm_min);
+  strcpy(model->relative_info.text, "-");
+
+  time_traveller_view_model_fill_colors(model, COLOR_APP_BACKGROUND);
+  time_traveller_view_model_fill_night_mode(model, false);
+
+  time_traveller_main_window_view_model_announce_changed(model);
+}
+
+void time_traveller_view_model_fill_night_mode(
+    WorldClockMainWindowViewModel *model, bool is_night) {
   model->is_night = is_night;
   if (is_night) {
     model->text_color = COLOR_TEXT_DEFAULT_NIGHT;
@@ -133,115 +186,90 @@ void time_traveller_view_model_fill_night_mode(WorldClockMainWindowViewModel *mo
   time_traveller_main_window_view_model_announce_changed(model);
 }
 
-void time_traveller_view_model_deinit(WorldClockMainWindowViewModel *model) {
-}
+void time_traveller_view_model_deinit(WorldClockMainWindowViewModel *model) {}
 
 // ============================================================
 // 49 Casio cities: names only (offsets/day/night come from JS)
 // ============================================================
 WorldClockDataPoint s_data_points[] = {
-    { .city = "PAGO PAGO" },
-    { .city = "HONOLULU" },
-    { .city = "ANCHORAGE" },
-    { .city = "VANCOUVER" },
-    { .city = "SAN FRANCISCO" },
-    { .city = "EDMONTON" },
-    { .city = "DENVER" },
-    { .city = "MEXICO CITY" },
-    { .city = "CHICAGO" },
-    { .city = "NEW YORK" },
-    { .city = "SANTIAGO" },
-    { .city = "HALIFAX" },
-    { .city = "ST. JOHNS" },
-    { .city = "RIO DE JANEIRO" },
-    { .city = "F. DE NORONHA" },
-    { .city = "PRAIA" },
-    { .city = "UTC" },
-    { .city = "LISBON" },
-    { .city = "LONDON" },
-    { .city = "MADRID" },
-    { .city = "PARIS" },
-    { .city = "ROME" },
-    { .city = "BERLIN" },
-    { .city = "STOCKHOLM" },
-    { .city = "ATHENS" },
-    { .city = "CAIRO" },
-    { .city = "JERUSALEM" },
-    { .city = "MOSCOW" },
-    { .city = "JEDDAH" },
-    { .city = "TEHRAN" },
-    { .city = "DUBAI" },
-    { .city = "KABUL" },
-    { .city = "KARACHI" },
-    { .city = "DELHI" },
-    { .city = "KATHMANDU" },
-    { .city = "DHAKA" },
-    { .city = "YANGON" },
-    { .city = "BANGKOK" },
-    { .city = "SINGAPORE" },
-    { .city = "HONG KONG" },
-    { .city = "BEIJING" },
-    { .city = "TAIPEI" },
-    { .city = "SEOUL" },
-    { .city = "TOKYO" },
-    { .city = "ADELAIDE" },
-    { .city = "GUAM" },
-    { .city = "SYDNEY" },
-    { .city = "NOUMEA" },
-    { .city = "WELLINGTON" },
+    {.city = "PAGO PAGO"},     {.city = "HONOLULU"},
+    {.city = "ANCHORAGE"},     {.city = "VANCOUVER"},
+    {.city = "SAN FRANCISCO"}, {.city = "EDMONTON"},
+    {.city = "DENVER"},        {.city = "MEXICO CITY"},
+    {.city = "CHICAGO"},       {.city = "NEW YORK"},
+    {.city = "SANTIAGO"},      {.city = "HALIFAX"},
+    {.city = "ST. JOHNS"},     {.city = "RIO DE JANEIRO"},
+    {.city = "F. DE NORONHA"}, {.city = "PRAIA"},
+    {.city = "UTC"},           {.city = "LISBON"},
+    {.city = "LONDON"},        {.city = "MADRID"},
+    {.city = "PARIS"},         {.city = "ROME"},
+    {.city = "BERLIN"},        {.city = "STOCKHOLM"},
+    {.city = "ATHENS"},        {.city = "CAIRO"},
+    {.city = "JERUSALEM"},     {.city = "MOSCOW"},
+    {.city = "JEDDAH"},        {.city = "TEHRAN"},
+    {.city = "DUBAI"},         {.city = "KABUL"},
+    {.city = "KARACHI"},       {.city = "DELHI"},
+    {.city = "KATHMANDU"},     {.city = "DHAKA"},
+    {.city = "YANGON"},        {.city = "BANGKOK"},
+    {.city = "SINGAPORE"},     {.city = "HONG KONG"},
+    {.city = "BEIJING"},       {.city = "TAIPEI"},
+    {.city = "SEOUL"},         {.city = "TOKYO"},
+    {.city = "ADELAIDE"},      {.city = "GUAM"},
+    {.city = "SYDNEY"},        {.city = "NOUMEA"},
+    {.city = "WELLINGTON"},
 };
 
 // City coordinates for map display
 static CityCoordinates s_city_coordinates[] = {
     {-170.70, -14.27}, // Pago Pago
-    {-157.86,  21.31}, // Honolulu
-    {-149.90,  61.22}, // Anchorage
-    {-123.12,  49.28}, // Vancouver
-    {-122.42,  37.77}, // San Francisco
-    {-113.49,  53.54}, // Edmonton
-    {-104.99,  39.74}, // Denver
-    { -99.13,  19.43}, // Mexico City
-    { -87.63,  41.88}, // Chicago
-    { -74.01,  40.71}, // New York
-    { -70.67, -33.45}, // Santiago
-    { -63.57,  44.65}, // Halifax
-    { -52.71,  47.56}, // St. Johns
-    { -43.17, -22.91}, // Rio De Janeiro
-    { -32.42,  -3.86}, // Fernando de Noronha
-    { -23.51,  14.92}, // Praia
-    {   0.00,   0.00}, // UTC
-    {  -9.14,  38.72}, // Lisbon
-    {  -0.13,  51.51}, // London
-    {  -3.70,  40.42}, // Madrid
-    {   2.35,  48.86}, // Paris
-    {  12.50,  41.90}, // Rome
-    {  13.41,  52.52}, // Berlin
-    {  18.07,  59.33}, // Stockholm
-    {  23.73,  37.98}, // Athens
-    {  31.24,  30.04}, // Cairo
-    {  35.23,  31.77}, // Jerusalem
-    {  37.62,  55.76}, // Moscow
-    {  39.19,  21.49}, // Jeddah
-    {  51.39,  35.69}, // Tehran
-    {  55.27,  25.20}, // Dubai
-    {  69.17,  34.53}, // Kabul
-    {  67.01,  24.86}, // Karachi
-    {  77.21,  28.61}, // Delhi
-    {  85.32,  27.72}, // Kathmandu
-    {  90.41,  23.81}, // Dhaka
-    {  96.20,  16.87}, // Yangon
-    { 100.50,  13.76}, // Bangkok
-    { 103.82,   1.35}, // Singapore
-    { 114.17,  22.32}, // Hong Kong
-    { 116.40,  39.90}, // Beijing
-    { 121.57,  25.03}, // Taipei
-    { 126.98,  37.57}, // Seoul
-    { 139.69,  35.68}, // Tokyo
-    { 138.60, -34.93}, // Adelaide
-    { 144.79,  13.44}, // Guam
-    { 151.21, -33.87}, // Sydney
-    { 166.46, -22.28}, // Noumea
-    { 174.78, -41.29}, // Wellington
+    {-157.86, 21.31},  // Honolulu
+    {-149.90, 61.22},  // Anchorage
+    {-123.12, 49.28},  // Vancouver
+    {-122.42, 37.77},  // San Francisco
+    {-113.49, 53.54},  // Edmonton
+    {-104.99, 39.74},  // Denver
+    {-99.13, 19.43},   // Mexico City
+    {-87.63, 41.88},   // Chicago
+    {-74.01, 40.71},   // New York
+    {-70.67, -33.45},  // Santiago
+    {-63.57, 44.65},   // Halifax
+    {-52.71, 47.56},   // St. Johns
+    {-43.17, -22.91},  // Rio De Janeiro
+    {-32.42, -3.86},   // Fernando de Noronha
+    {-23.51, 14.92},   // Praia
+    {0.00, 0.00},      // UTC
+    {-9.14, 38.72},    // Lisbon
+    {-0.13, 51.51},    // London
+    {-3.70, 40.42},    // Madrid
+    {2.35, 48.86},     // Paris
+    {12.50, 41.90},    // Rome
+    {13.41, 52.52},    // Berlin
+    {18.07, 59.33},    // Stockholm
+    {23.73, 37.98},    // Athens
+    {31.24, 30.04},    // Cairo
+    {35.23, 31.77},    // Jerusalem
+    {37.62, 55.76},    // Moscow
+    {39.19, 21.49},    // Jeddah
+    {51.39, 35.69},    // Tehran
+    {55.27, 25.20},    // Dubai
+    {69.17, 34.53},    // Kabul
+    {67.01, 24.86},    // Karachi
+    {77.21, 28.61},    // Delhi
+    {85.32, 27.72},    // Kathmandu
+    {90.41, 23.81},    // Dhaka
+    {96.20, 16.87},    // Yangon
+    {100.50, 13.76},   // Bangkok
+    {103.82, 1.35},    // Singapore
+    {114.17, 22.32},   // Hong Kong
+    {116.40, 39.90},   // Beijing
+    {121.57, 25.03},   // Taipei
+    {126.98, 37.57},   // Seoul
+    {139.69, 35.68},   // Tokyo
+    {138.60, -34.93},  // Adelaide
+    {144.79, 13.44},   // Guam
+    {151.21, -33.87},  // Sydney
+    {166.46, -22.28},  // Noumea
+    {174.78, -41.29},  // Wellington
 };
 
 // Apply binary blob from JS: 4 bytes per city
@@ -266,15 +294,13 @@ void time_traveller_data_apply_js_blob(const uint8_t *blob, uint16_t length) {
 }
 
 CityCoordinates *time_traveller_get_city_coordinates(int city_index) {
-    if (city_index < 0 || city_index >= time_traveller_num_data_points()) {
-        return NULL;
-    }
-    return &s_city_coordinates[city_index];
+  if (city_index < 0 || city_index >= time_traveller_num_data_points()) {
+    return NULL;
+  }
+  return &s_city_coordinates[city_index];
 }
 
-int time_traveller_num_data_points(void) {
-  return ARRAY_LENGTH(s_data_points);
-}
+int time_traveller_num_data_points(void) { return ARRAY_LENGTH(s_data_points); }
 
 WorldClockDataPoint *time_traveller_data_point_at(int idx) {
   if (idx < 0 || idx > time_traveller_num_data_points() - 1) {
@@ -293,7 +319,8 @@ int time_traveller_index_of_data_point(WorldClockDataPoint *dp) {
   return -1;
 }
 
-WorldClockDataPoint *time_traveller_data_point_delta(WorldClockDataPoint *dp, int delta) {
+WorldClockDataPoint *time_traveller_data_point_delta(WorldClockDataPoint *dp,
+                                                     int delta) {
   int idx = time_traveller_index_of_data_point(dp);
   if (idx < 0) {
     return NULL;

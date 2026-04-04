@@ -83,6 +83,8 @@ void time_traveller_view_model_fill_colors(WorldClockMainWindowViewModel *model,
 
 void time_traveller_view_model_fill_night_mode(
     WorldClockMainWindowViewModel *model, bool is_night);
+void time_traveller_view_model_fill_loading(
+    WorldClockMainWindowViewModel *model);
 
 void time_traveller_view_model_deinit(WorldClockMainWindowViewModel *model);
 
