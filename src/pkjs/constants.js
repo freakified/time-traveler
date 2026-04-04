@@ -1,0 +1,5 @@
+module.exports = {
+  OVERLAY_CHUNK_ROWS: 6,
+  FULL_DAY_START: 0,
+  FULL_NIGHT_SENTINEL: 255
+};
