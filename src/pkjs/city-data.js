@@ -31,28 +31,45 @@ function getPinnedCities() {
   }
   
   // Default to sensible world cities if no setting found
-  return ['SAN FRANCISCO', 'NEW YORK', 'LONDON', 'PARIS', 'TOKYO', 'SYDNEY'];
+  return [
+    "HONOLULU", "ANCHORAGE", "SAN FRANCISCO", "DENVER", "CHICAGO", "NEW YORK",
+    "ST. JOHNS", "RIO DE JANEIRO", "LONDON", "BERLIN", "CAIRO", "MOSCOW",
+    "DUBAI", "DELHI", "KATHMANDU", "BANGKOK", "BEIJING", "TOKYO", "SYDNEY",
+    "WELLINGTON"
+  ];
+  }
+
+
+function getPinnedCityIndices() {
+  var pinnedNames = getPinnedCities();
+  var indices = [];
+  var CITIES = timezone.CITIES;
+  for (var i = 0; i < CITIES.length; i++) {
+    if (pinnedNames.includes(CITIES[i].name)) {
+      indices.push(i);
+    }
+  }
+  return indices;
 }
 
 function computeCityDataBlob(now) {
   var CITIES = timezone.CITIES;
-  var pinnedCities = getPinnedCities();
+  var pinnedIndices = getPinnedCityIndices();
   var blob = [];
   
-  // Only include pinned cities
-  for (var i = 0; i < CITIES.length; i++) {
-    var city = CITIES[i];
-    if (pinnedCities.includes(city.name)) {
-      var offset = timezone.cityOffsetMinutes(city, now);
-      var label = timezone.dayLabelForCity(city, now);
-      var labelByte = label < 0 ? FULL_NIGHT_SENTINEL : label;
-      var isNight = 0;
+  // Only include pinned fixed cities
+  for (var i = 0; i < pinnedIndices.length; i++) {
+    var cityIdx = pinnedIndices[i];
+    var city = CITIES[cityIdx];
+    var offset = timezone.cityOffsetMinutes(city, now);
+    var label = timezone.dayLabelForCity(city, now);
+    var labelByte = label < 0 ? FULL_NIGHT_SENTINEL : label;
+    var isNight = 0;
 
-      blob.push((offset >> 8) & 0xFF);
-      blob.push(offset & 0xFF);
-      blob.push(labelByte);
-      blob.push(isNight);
-    }
+    blob.push((offset >> 8) & 0xFF);
+    blob.push(offset & 0xFF);
+    blob.push(labelByte);
+    blob.push(isNight);
   }
   return blob;
 }
@@ -65,14 +82,11 @@ function cityDataBlobsEqual(a, b) {
   return true;
 }
 
-function sendCityData(userCityIndex) {
+function sendCityData(coords) {
   var now = new Date();
   var blob = computeCityDataBlob(now);
-  var userIdx = (userCityIndex !== undefined && userCityIndex >= 0)
-    ? userCityIndex
-    : timezone.detectUserCityIndex(now);
 
-  if (cityDataBlobsEqual(blob, lastSentCityData)) {
+  if (cityDataBlobsEqual(blob, lastSentCityData) && !coords) {
     return;
   }
   lastSentCityData = blob;
@@ -81,13 +95,20 @@ function sendCityData(userCityIndex) {
   var chunks = [];
   for (var start = 0; start < blob.length; start += CHUNK_SIZE) {
     var chunk = blob.slice(start, start + CHUNK_SIZE);
-    chunks.push({
+    var dict = {
       CITY_DATA_START: start,
       CITY_DATA_COUNT: chunk.length,
       CITY_DATA_TOTAL: blob.length,
-      CITY_DATA: chunk,
-      USER_CITY_INDEX: (start === 0 ? userIdx : -1)
-    });
+      CITY_DATA: chunk
+    };
+
+    if (start === 0 && coords) {
+      // Send coords as integers multiplied by 100 to preserve precision in int32
+      dict.USER_LAT = Math.round(coords.latitude * 100);
+      dict.USER_LON = Math.round(coords.longitude * 100);
+    }
+
+    chunks.push(dict);
   }
 
   function sendChunk(index) {
@@ -110,5 +131,6 @@ function clearCachedPinnedCities() {
 module.exports = {
   sendCityData: sendCityData,
   forceResend: forceResend,
-  clearCachedPinnedCities: clearCachedPinnedCities
+  clearCachedPinnedCities: clearCachedPinnedCities,
+  getPinnedCityIndices: getPinnedCityIndices
 };

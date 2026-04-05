@@ -34,7 +34,7 @@ void property_animation_update_animated_numbers(PropertyAnimation *property_anim
     .minute = distance_interpolate(distance_normalized, from.minute, to.minute),
   };
   PropertyAnimationImplementation *impl = (PropertyAnimationImplementation *) animation_get_implementation((Animation *) property_animation);
-  AnimatedNumbersSetter setter = (AnimatedNumbersSetter)impl->accessors.setter.grect;
+  AnimatedNumbersSetter setter = (AnimatedNumbersSetter)(void *)impl->accessors.setter.grect;
 
   void *subject;
   if (property_animation_get_subject(property_animation, &subject) && subject) {
@@ -47,8 +47,8 @@ static const PropertyAnimationImplementation s_animated_numbers_implementation =
     .update = (AnimationUpdateImplementation) property_animation_update_animated_numbers,
   },
   .accessors = {
-    .setter = { .grect = (const GRectSetter) set_animated_numbers, },
-    .getter = { .grect = (const GRectGetter) get_animated_numbers, },
+    .setter = { .grect = (const GRectSetter)(void *) set_animated_numbers, },
+    .getter = { .grect = (const GRectGetter)(void *) get_animated_numbers, },
   },
 };
 

@@ -7,12 +7,26 @@ TimeTravelerSettings global_settings;
 
 // Default pinned cities
 static const char *DEFAULT_PINNED_CITIES[] = {
+  "HONOLULU",
+  "ANCHORAGE",
   "SAN FRANCISCO",
+  "DENVER",
+  "CHICAGO",
   "NEW YORK",
+  "ST. JOHNS",
+  "RIO DE JANEIRO",
   "LONDON",
-  "PARIS",
+  "BERLIN",
+  "CAIRO",
+  "MOSCOW",
+  "DUBAI",
+  "DELHI",
+  "KATHMANDU",
+  "BANGKOK",
+  "BEIJING",
   "TOKYO",
-  "SYDNEY"
+  "SYDNEY",
+  "WELLINGTON"
 };
 
 static const int DEFAULT_PINNED_CITIES_COUNT = sizeof(DEFAULT_PINNED_CITIES) / sizeof(DEFAULT_PINNED_CITIES[0]);
@@ -76,4 +90,19 @@ int time_traveler_settings_get_pinned_city_index(const char *city_name) {
     }
   }
   return -1;
+}
+
+void time_traveler_settings_set_pinned_indices(const uint8_t *indices, int count) {
+  global_settings.num_pinned_cities = 0;
+  for (int i = 0; i < count; i++) {
+    if (i < MAX_PINNED_CITIES) {
+      const char *name = time_traveler_data_get_master_city_name(indices[i]);
+      if (name) {
+        strncpy(global_settings.pinned_cities[i], name, sizeof(global_settings.pinned_cities[i]) - 1);
+        global_settings.pinned_cities[i][sizeof(global_settings.pinned_cities[i]) - 1] = '\0';
+        global_settings.num_pinned_cities++;
+      }
+    }
+  }
+  time_traveler_settings_save();
 }

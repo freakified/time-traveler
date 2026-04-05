@@ -23,9 +23,25 @@ function sendSettingsToWatch() {
 
   var dict = {};
 
-  // Send pinned cities setting
+  // Send pinned cities setting as a byte array of indices
   if (cachedSettings.SETTING_PINNED_CITIES) {
-    dict['SETTING_PINNED_CITIES'] = cachedSettings.SETTING_PINNED_CITIES;
+    var indices = cityData.getPinnedCityIndices();
+    console.log('Pinned city indices for watch: ' + JSON.stringify(indices));
+    dict['SETTING_PINNED_CITIES'] = indices;
+    
+    // Also try to send current coords if available
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(function(pos) {
+        dict.USER_LAT = Math.round(pos.coords.latitude * 100);
+        dict.USER_LON = Math.round(pos.coords.longitude * 100);
+        console.log('Sending settings with coords: ' + JSON.stringify(dict));
+        Pebble.sendAppMessage(dict);
+      }, function() {
+        console.log('Sending settings without coords: ' + JSON.stringify(dict));
+        Pebble.sendAppMessage(dict);
+      }, { timeout: 2000, maximumAge: 600000 });
+      return; // Handled in callback
+    }
   }
 
   console.log('Sending settings to watch: ' + JSON.stringify(dict));
@@ -38,9 +54,20 @@ function sendSettingsToWatch() {
 
 Pebble.addEventListener("ready", function () {
   startDstChecks();
-  timezone.detectUserCityIndexGeolocation(function (idx) {
-    cityData.sendCityData(idx);
-  });
+  
+  if (navigator.geolocation) {
+    navigator.geolocation.getCurrentPosition(function(pos) {
+      cityData.sendCityData(pos.coords);
+    }, function() {
+      cityData.sendCityData();
+    }, {
+      enableHighAccuracy: false,
+      timeout: 5000,
+      maximumAge: 600000
+    });
+  } else {
+    cityData.sendCityData();
+  }
 
   // Restore settings from previous session
   var savedSettings = localStorage.getItem('timeTravelerSettings');
@@ -125,17 +152,5 @@ Pebble.addEventListener('webviewclosed', function (e) {
   cityData.clearCachedPinnedCities();
 
   // Convert to proper format and send to watch
-  var dict = {};
-
-  // Only send the pinned cities setting
-  if (configData.SETTING_PINNED_CITIES) {
-    dict['SETTING_PINNED_CITIES'] = configData.SETTING_PINNED_CITIES;
-  }
-
-  console.log('Sending config to Pebble: ' + JSON.stringify(dict));
-
-  Pebble.sendAppMessage(dict,
-    function () { console.log('Config sent successfully!'); },
-    function (e) { console.log('Error sending config: ' + JSON.stringify(e)); }
-  );
+  sendSettingsToWatch();
 });

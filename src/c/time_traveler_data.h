@@ -18,18 +18,18 @@ typedef struct {
   struct {
     int16_t hour;
     int16_t minute;
-    char text[12]; // "HH:MM" or "H:MM" format (time numbers only)
+    char text[16]; // Increased for safety
   } time;
   struct {
-    char text[3]; // "AM", "PM", or ""
+    char text[8]; // Increased for safety
   } meridiem;
   struct {
     int16_t idx;
     int16_t num;
-    char text[8];
+    char text[16]; // Increased for safety
   } pagination;
   struct {
-    char text[25]; // "TODAY, +3 HRS" or "YESTERDAY, -5 HRS"
+    char text[36]; // Increased for safety (TODAY, +12:34 HRS = ~20 chars)
   } relative_info;
   int16_t current_offset; // current offset for animation
   bool is_night;
@@ -94,6 +94,13 @@ GColor time_traveler_data_point_color(WorldClockDataPoint *data_point,
                                        bool is_night);
 
 int time_traveler_num_data_points(void);
+int time_traveler_num_master_cities(void);
+const char *time_traveler_data_get_master_city_name(int master_idx);
+
+void time_traveler_data_set_user_location(float lat, float lon);
+bool time_traveler_data_has_user_location(void);
+void time_traveler_data_get_user_location(float *lat, float *lon);
+bool time_traveler_data_is_user_location(WorldClockDataPoint *dp);
 
 WorldClockDataPoint *time_traveler_data_point_at(int idx);
 WorldClockDataPoint *time_traveler_data_point_delta(WorldClockDataPoint *dp,

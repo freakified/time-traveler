@@ -1,5 +1,6 @@
 #include "time_traveler_data.h"
 #include "metrics.h"
+#include "time_traveler_settings.h"
 #include <pebble.h>
 
 void time_traveler_main_window_view_model_announce_changed(
@@ -10,7 +11,7 @@ void time_traveler_main_window_view_model_announce_changed(
 }
 
 void time_traveler_view_model_set_time(WorldClockMainWindowViewModel *model,
-                                        int16_t hour, int16_t minute) {
+                                       int16_t hour, int16_t minute) {
   model->time.hour = hour;
   model->time.minute = minute;
 
@@ -38,7 +39,7 @@ void time_traveler_view_model_set_relative_info(
   int16_t mins = abs_minutes % 60;
   int sign = (relative_offset_minutes >= 0) ? 1 : -1;
 
-  char day_str[10];
+  char day_str[16]; // Increased for safety
   if (data_point->day_label == -1) {
     strcpy(day_str, "YESTERDAY");
   } else if (data_point->day_label == 1) {
@@ -47,7 +48,7 @@ void time_traveler_view_model_set_relative_info(
     strcpy(day_str, "TODAY");
   }
 
-  char offset_str[12];
+  char offset_str[16]; // Increased for safety
   if (mins == 0) {
     snprintf(offset_str, sizeof(offset_str), "%c%d HRS", sign > 0 ? '+' : '-',
              hours);
@@ -62,6 +63,40 @@ void time_traveler_view_model_set_relative_info(
   model->current_offset = relative_offset_minutes / 60;
 }
 
+static WorldClockDataPoint s_user_location_dp = {
+#if defined(PBL_PLATFORM_APLITE) || defined(PBL_PLATFORM_BASALT) ||            \
+    defined(PBL_PLATFORM_DIORITE) || defined(PBL_PLATFORM_FLINT)
+    .city = "CURR. LOCATION",
+#else
+    .city = "CURRENT LOCATION",
+#endif
+    .offset_minutes = 0,
+    .day_label = 0,
+    .is_night = false};
+
+static float s_user_lat = 0;
+static float s_user_lon = 0;
+static bool s_has_user_location = false;
+
+void time_traveler_data_set_user_location(float lat, float lon) {
+  s_user_lat = lat;
+  s_user_lon = lon;
+  s_has_user_location = true;
+}
+
+bool time_traveler_data_has_user_location(void) { return s_has_user_location; }
+
+void time_traveler_data_get_user_location(float *lat, float *lon) {
+  if (lat)
+    *lat = s_user_lat;
+  if (lon)
+    *lon = s_user_lon;
+}
+
+bool time_traveler_data_is_user_location(WorldClockDataPoint *dp) {
+  return (dp == &s_user_location_dp);
+}
+
 WorldClockDataViewNumbers
 time_traveler_data_point_view_model_numbers(WorldClockDataPoint *data_point) {
   if (!data_point) {
@@ -69,6 +104,15 @@ time_traveler_data_point_view_model_numbers(WorldClockDataPoint *data_point) {
   }
   time_t now = time(NULL);
   struct tm *current_local = localtime(&now);
+
+  if (data_point == &s_user_location_dp) {
+    // For user's actual location, just use the watch's current time
+    return (WorldClockDataViewNumbers){
+        .hour = current_local->tm_hour,
+        .offset = 0, // 0 relative offset (it IS local time)
+        .minute = current_local->tm_min,
+    };
+  }
 
   time_t gmt_seconds = now - current_local->tm_gmtoff;
   int16_t local_offset_minutes = current_local->tm_gmtoff / 60;
@@ -101,28 +145,27 @@ void time_traveler_view_model_fill_strings_and_pagination(
   time_traveler_main_window_view_model_announce_changed(view_model);
 }
 
-void time_traveler_view_model_fill_numbers(
-    WorldClockMainWindowViewModel *model, WorldClockDataViewNumbers numbers,
-    WorldClockDataPoint *data_point) {
+void time_traveler_view_model_fill_numbers(WorldClockMainWindowViewModel *model,
+                                           WorldClockDataViewNumbers numbers,
+                                           WorldClockDataPoint *data_point) {
   time_traveler_view_model_set_time(model, numbers.hour, numbers.minute);
-  time_traveler_view_model_set_relative_info(model, numbers.offset,
-                                              data_point);
+  time_traveler_view_model_set_relative_info(model, numbers.offset, data_point);
 }
 
 void time_traveler_view_model_fill_colors(WorldClockMainWindowViewModel *model,
-                                           GColor color) {
+                                          GColor color) {
   model->bg_color.top = color;
   model->bg_color.bottom = color;
   time_traveler_main_window_view_model_announce_changed(model);
 }
 
 GColor time_traveler_data_point_color(WorldClockDataPoint *data_point,
-                                       bool is_night) {
+                                      bool is_night) {
   return is_night ? COLOR_APP_BACKGROUND_NIGHT : COLOR_APP_BACKGROUND;
 }
 
 void time_traveler_view_model_fill_all(WorldClockMainWindowViewModel *model,
-                                        WorldClockDataPoint *data_point) {
+                                       WorldClockDataPoint *data_point) {
   WorldClockMainWindowViewModelFunc annouce_changed = model->announce_changed;
   memset(model, 0, sizeof(*model));
   model->announce_changed = annouce_changed;
@@ -143,7 +186,7 @@ void time_traveler_view_model_fill_loading(
   memset(model, 0, sizeof(*model));
   model->announce_changed = annouce_changed;
 
-  model->city = "WELCOME";
+  model->city = "LOADING...";
   model->pagination.idx = 0;
   model->pagination.num = (int16_t)time_traveler_num_data_points();
   snprintf(model->pagination.text, sizeof(model->pagination.text), "-/%d",
@@ -152,8 +195,8 @@ void time_traveler_view_model_fill_loading(
   time_t now = time(NULL);
   struct tm *current_local = localtime(&now);
   time_traveler_view_model_set_time(model, current_local->tm_hour,
-                                     current_local->tm_min);
-  strcpy(model->relative_info.text, "LOADING CITIES...");
+                                    current_local->tm_min);
+  strcpy(model->relative_info.text, "PLEASE WAIT");
 
   time_traveler_view_model_fill_colors(model, COLOR_APP_BACKGROUND);
   time_traveler_view_model_fill_night_mode(model, false);
@@ -287,27 +330,122 @@ void time_traveler_data_apply_js_blob(const uint8_t *blob, uint16_t length) {
     int8_t day_label = (p[2] == 255) ? -1 : (int8_t)p[2];
     bool is_night = (p[3] != 0);
 
-    s_data_points[i].offset_minutes = offset;
-    s_data_points[i].day_label = day_label;
-    s_data_points[i].is_night = is_night;
+    WorldClockDataPoint *dp = time_traveler_data_point_at(i);
+    if (dp) {
+      dp->offset_minutes = offset;
+      dp->day_label = day_label;
+      dp->is_night = is_night;
+    }
   }
 }
 
-CityCoordinates *time_traveler_get_city_coordinates(int city_index) {
-  if (city_index < 0 || city_index >= time_traveler_num_data_points()) {
+int time_traveler_num_master_cities(void) {
+  return ARRAY_LENGTH(s_data_points);
+}
+
+const char *time_traveler_data_get_master_city_name(int master_idx) {
+  if (master_idx < 0 || master_idx >= time_traveler_num_master_cities()) {
     return NULL;
   }
-  return &s_city_coordinates[city_index];
+  return s_data_points[master_idx].city;
 }
 
-int time_traveler_num_data_points(void) { return ARRAY_LENGTH(s_data_points); }
+int time_traveler_num_data_points(void) {
+  int count = global_settings.num_pinned_cities;
+  if (s_has_user_location) {
+    count++;
+  }
+  return count;
+}
+
+static int prv_get_user_location_insert_index(void) {
+  if (!s_has_user_location)
+    return -1;
+
+  // Find where to insert user location based on longitude
+  int insert_idx = 0;
+  for (int i = 0; i < global_settings.num_pinned_cities; i++) {
+    // Find master index for each pinned city to get its longitude
+    const char *pinned_name = global_settings.pinned_cities[i];
+    int master_idx = -1;
+    for (int j = 0; j < (int)ARRAY_LENGTH(s_data_points); j++) {
+      if (strcmp(s_data_points[j].city, pinned_name) == 0) {
+        master_idx = j;
+        break;
+      }
+    }
+
+    if (master_idx >= 0) {
+      if (s_user_lon < s_city_coordinates[master_idx].longitude) {
+        break;
+      }
+    }
+    insert_idx++;
+  }
+  return insert_idx;
+}
 
 WorldClockDataPoint *time_traveler_data_point_at(int idx) {
-  if (idx < 0 || idx > time_traveler_num_data_points() - 1) {
+  if (idx < 0 || idx >= time_traveler_num_data_points()) {
     return NULL;
   }
 
-  return &s_data_points[idx];
+  if (s_has_user_location) {
+    int user_idx = prv_get_user_location_insert_index();
+    if (idx == user_idx) {
+      return &s_user_location_dp;
+    }
+    if (idx > user_idx) {
+      idx--; // Map to index in global_settings.pinned_cities
+    }
+  }
+
+  const char *pinned_name = global_settings.pinned_cities[idx];
+  for (int i = 0; i < (int)ARRAY_LENGTH(s_data_points); i++) {
+    if (strcmp(s_data_points[i].city, pinned_name) == 0) {
+      return &s_data_points[i];
+    }
+  }
+
+  return NULL;
+}
+
+int time_traveler_data_get_master_index(int filtered_idx) {
+  if (filtered_idx < 0 || filtered_idx >= time_traveler_num_data_points()) {
+    return -1;
+  }
+
+  if (s_has_user_location) {
+    int user_idx = prv_get_user_location_insert_index();
+    if (filtered_idx == user_idx) {
+      return -2; // Special value for user location
+    }
+    if (filtered_idx > user_idx) {
+      filtered_idx--;
+    }
+  }
+
+  const char *pinned_name = global_settings.pinned_cities[filtered_idx];
+  for (int i = 0; i < (int)ARRAY_LENGTH(s_data_points); i++) {
+    if (strcmp(s_data_points[i].city, pinned_name) == 0) {
+      return i;
+    }
+  }
+  return -1;
+}
+
+static CityCoordinates s_actual_user_coords;
+CityCoordinates *time_traveler_get_city_coordinates(int city_index) {
+  int master_idx = time_traveler_data_get_master_index(city_index);
+  if (master_idx == -2) {
+    s_actual_user_coords.latitude = s_user_lat;
+    s_actual_user_coords.longitude = s_user_lon;
+    return &s_actual_user_coords;
+  }
+  if (master_idx < 0) {
+    return NULL;
+  }
+  return &s_city_coordinates[master_idx];
 }
 
 int time_traveler_index_of_data_point(WorldClockDataPoint *dp) {
@@ -320,7 +458,7 @@ int time_traveler_index_of_data_point(WorldClockDataPoint *dp) {
 }
 
 WorldClockDataPoint *time_traveler_data_point_delta(WorldClockDataPoint *dp,
-                                                     int delta) {
+                                                    int delta) {
   int idx = time_traveler_index_of_data_point(dp);
   if (idx < 0) {
     return NULL;
