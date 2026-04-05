@@ -17,15 +17,15 @@ void time_traveler_view_model_set_time(WorldClockMainWindowViewModel *model,
   if (clock_is_24h_style()) {
     snprintf(model->time.text, sizeof(model->time.text), "%02d:%02d",
              model->time.hour, model->time.minute);
-    model->time.ampm[0] = '\0';
+    model->meridiem.text[0] = '\0';
   } else {
     int display_hour = hour % 12;
     if (display_hour == 0)
       display_hour = 12;
-    const char *ampm = (hour < 12) ? "AM" : "PM";
     snprintf(model->time.text, sizeof(model->time.text), "%d:%02d",
              display_hour, model->time.minute);
-    strcpy(model->time.ampm, ampm);
+    snprintf(model->meridiem.text, sizeof(model->meridiem.text),
+             hour < 12 ? "AM" : "PM");
   }
 }
 

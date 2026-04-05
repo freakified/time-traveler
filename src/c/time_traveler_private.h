@@ -12,8 +12,9 @@ typedef struct {
   TextLayer *pagination_layer;
   TextLayer *city_layer;
   Layer *horizontal_ruler_layer;
+  Layer *time_row_layer;
   TextLayer *time_layer;
-  TextLayer *ampm_layer;
+  TextLayer *time_meridiem_layer;
   TextLayer *relative_info_layer;
   Layer *map_layer;
   GBitmap *world_map_base_image;

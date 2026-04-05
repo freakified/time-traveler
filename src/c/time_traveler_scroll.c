@@ -96,12 +96,10 @@ static Animation *create_outbound_anim(WorldClockData *data,
       text_layer_get_layer(data->city_layer), LAYOUT_SCROLL_DURATION_MS, to_dy);
   Animation *out_ruler = create_anim_scroll_out(data->horizontal_ruler_layer,
                                                 LAYOUT_SCROLL_DURATION_MS, to_dy);
-  Animation *out_ampm = create_anim_scroll_out(
-      text_layer_get_layer(data->ampm_layer), LAYOUT_SCROLL_DURATION_MS, to_dy);
   Animation *out_gps_arrow = create_anim_scroll_out(data->gps_arrow_layer,
                                                     LAYOUT_SCROLL_DURATION_MS, to_dy);
 
-  return animation_spawn_create(out_city, out_ruler, out_ampm, out_gps_arrow, NULL);
+  return animation_spawn_create(out_city, out_ruler, out_gps_arrow, NULL);
 }
 
 static Animation *create_inbound_anim(WorldClockData *data,
@@ -112,19 +110,17 @@ static Animation *create_inbound_anim(WorldClockData *data,
   Animation *in_city = create_anim_scroll_in(
       text_layer_get_layer(data->city_layer), LAYOUT_SCROLL_DURATION_MS, from_dy);
   Animation *in_time = create_anim_scroll_in(
-      text_layer_get_layer(data->time_layer), LAYOUT_SCROLL_DURATION_MS, from_dy);
+      data->time_row_layer, LAYOUT_SCROLL_DURATION_MS, from_dy);
   Animation *in_relative_info =
       create_anim_scroll_in(text_layer_get_layer(data->relative_info_layer),
                             LAYOUT_SCROLL_DURATION_MS, from_dy);
   Animation *in_ruler = create_anim_scroll_in(data->horizontal_ruler_layer,
                                               LAYOUT_SCROLL_DURATION_MS, from_dy);
-  Animation *in_ampm = create_anim_scroll_in(
-      text_layer_get_layer(data->ampm_layer), LAYOUT_SCROLL_DURATION_MS, from_dy);
   Animation *in_gps_arrow = create_anim_scroll_in(data->gps_arrow_layer,
                                                   LAYOUT_SCROLL_DURATION_MS, from_dy);
 
   return animation_spawn_create(in_city, in_time, in_relative_info, in_ruler,
-                                in_ampm, in_gps_arrow, NULL);
+                                in_gps_arrow, NULL);
 }
 
 static void prv_scroll_animation_stopped(Animation *animation, bool finished,

@@ -293,40 +293,55 @@ static void gps_arrow_update_proc(Layer *layer, GContext *ctx) {
   gdraw_command_image_destroy(command_image);
 }
 
-static void update_ampm_position(WorldClockData *data) {
-  if (clock_is_24h_style()) {
-    layer_set_hidden(text_layer_get_layer(data->ampm_layer), true);
-  } else {
-    layer_set_hidden(text_layer_get_layer(data->ampm_layer), false);
-
-    GRect time_bounds = layer_get_frame(text_layer_get_layer(data->time_layer));
-    GSize time_content_size = text_layer_get_content_size(data->time_layer);
-
-    GFont ampm_font = fonts_get_system_font(LAYOUT_FONT_AMPM);
-    GSize ampm_content_size = graphics_text_layout_get_content_size(
-        data->view_model.time.ampm, ampm_font,
-        GRect(0, 0, LAYOUT_AMPM_LAYER_WIDTH, LAYOUT_AMPM_LAYER_HEIGHT),
-        GTextOverflowModeTrailingEllipsis, GTextAlignmentLeft);
-
-    const int16_t screen_width =
-        layer_get_bounds(window_get_root_layer(s_main_window)).size.w;
-    const int16_t combined_width =
-        time_content_size.w + LAYOUT_AMPM_X_OFFSET + ampm_content_size.w;
-    const int16_t group_x = (screen_width - combined_width) / 2;
-
-    GRect new_time_bounds = GRect(group_x, time_bounds.origin.y, combined_width,
-                                  time_bounds.size.h);
-    layer_set_frame(text_layer_get_layer(data->time_layer), new_time_bounds);
-    text_layer_set_text_alignment(data->time_layer, GTextAlignmentLeft);
-
-    int16_t ampm_x = group_x + time_content_size.w + LAYOUT_AMPM_X_OFFSET;
-    int16_t ampm_y =
-        time_bounds.origin.y + time_content_size.h - ampm_content_size.h;
-
-    layer_set_frame(
-        text_layer_get_layer(data->ampm_layer),
-        GRect(ampm_x, ampm_y, ampm_content_size.w, ampm_content_size.h));
+static void prv_layout_time_row(WorldClockData *data) {
+  if (!data || !data->time_row_layer || !data->time_layer ||
+      !data->time_meridiem_layer) {
+    return;
   }
+
+  const GRect row_bounds = layer_get_bounds(data->time_row_layer);
+  const char *time_text = data->view_model.time.text;
+  const char *meridiem_text = data->view_model.meridiem.text;
+  const bool show_meridiem = meridiem_text[0] != '\0';
+
+  const GFont time_font = fonts_get_system_font(LAYOUT_FONT_TIME);
+  const GFont meridiem_font = fonts_get_system_font(LAYOUT_FONT_TIME_AM_PM);
+  const GSize time_size = graphics_text_layout_get_content_size(
+      time_text, time_font, row_bounds, GTextOverflowModeTrailingEllipsis,
+      GTextAlignmentLeft);
+
+  const int16_t spacing = show_meridiem ? LAYOUT_TIME_AM_PM_SPACING : 0;
+  int16_t meridiem_width = 0;
+  if (show_meridiem) {
+    const GSize meridiem_size = graphics_text_layout_get_content_size(
+        meridiem_text, meridiem_font,
+        GRect(0, 0, LAYOUT_TIME_AM_PM_LAYER_WIDTH, LAYOUT_TIME_AM_PM_LAYER_HEIGHT),
+        GTextOverflowModeTrailingEllipsis, GTextAlignmentLeft);
+    meridiem_width = meridiem_size.w;
+  }
+
+  int16_t time_x = 0;
+  if (PBL_IF_ROUND_ELSE(true, false)) {
+    const int16_t total_width = time_size.w + spacing + meridiem_width;
+    time_x = (row_bounds.size.w - total_width) / 2;
+  }
+  const int16_t meridiem_x = time_x + time_size.w + spacing;
+
+  const int16_t available_width =
+      row_bounds.size.w - time_x - spacing - meridiem_width;
+  const int16_t time_layer_width =
+      (available_width > time_size.w + 2) ? available_width : time_size.w + 2;
+  text_layer_set_text_alignment(data->time_layer, GTextAlignmentLeft);
+  layer_set_frame(text_layer_get_layer(data->time_layer),
+                  GRect(time_x, 0, time_layer_width, row_bounds.size.h));
+
+  text_layer_set_text_alignment(data->time_meridiem_layer, GTextAlignmentLeft);
+  layer_set_frame(
+      text_layer_get_layer(data->time_meridiem_layer),
+      GRect(meridiem_x, LAYOUT_TIME_AM_PM_Y_OFFSET,
+            LAYOUT_TIME_AM_PM_LAYER_WIDTH, LAYOUT_TIME_AM_PM_LAYER_HEIGHT));
+  layer_set_hidden(text_layer_get_layer(data->time_meridiem_layer),
+                   !show_meridiem);
 }
 
 void time_traveler_main_window_update_night_mode(WorldClockData *data) {
@@ -343,22 +358,21 @@ static void view_model_changed(struct WorldClockMainWindowViewModel *arg) {
 
   text_layer_set_text(data->city_layer, model->city);
   text_layer_set_text(data->time_layer, model->time.text);
-  text_layer_set_text(data->ampm_layer, model->time.ampm);
+  text_layer_set_text(data->time_meridiem_layer, model->meridiem.text);
   text_layer_set_text(data->relative_info_layer, model->relative_info.text);
   text_layer_set_text(data->pagination_layer, model->pagination.text);
 
   text_layer_set_text_color(data->city_layer, model->text_color);
   text_layer_set_text_color(data->time_layer, model->text_color);
-  text_layer_set_text_color(data->ampm_layer, model->text_color);
+  text_layer_set_text_color(data->time_meridiem_layer, model->text_color);
   text_layer_set_text_color(data->relative_info_layer, model->text_color);
   text_layer_set_text_color(data->fake_statusbar, model->statusbar_text_color);
   text_layer_set_text_color(data->pagination_layer,
                             model->statusbar_text_color);
 
-  update_ampm_position(data);
-
   text_layer_set_text(data->relative_info_layer, "");
   text_layer_set_text(data->relative_info_layer, model->relative_info.text);
+  prv_layout_time_row(data);
 
   layer_mark_dirty(window_get_root_layer(s_main_window));
   layer_mark_dirty(text_layer_get_layer(data->relative_info_layer));
@@ -378,14 +392,7 @@ void time_traveler_main_window_update_status_bar_time(void) {
   struct tm *local_time = localtime(&now);
 
   static char time_str[] = "00:00";
-  if (clock_is_24h_style()) {
-    strftime(time_str, sizeof(time_str), "%H:%M", local_time);
-  } else {
-    strftime(time_str, sizeof(time_str), "%I:%M %p", local_time);
-    if (time_str[0] == '0') {
-      memmove(time_str, time_str + 1, strlen(time_str));
-    }
-  }
+  strftime(time_str, sizeof(time_str), "%H:%M", local_time);
 
   text_layer_set_text(data->fake_statusbar, time_str);
 }
@@ -462,19 +469,36 @@ static void main_window_load(Window *window) {
   layer_set_hidden(data->gps_arrow_layer, true);
 
   const int16_t time_top = time_y;
-  init_text_layer(window_layer, &data->time_layer, time_top,
-                  LAYOUT_TIME_LAYER_HEIGHT, 0, LAYOUT_FONT_TIME);
+  const int16_t time_font_compensator =
+      strcmp(LAYOUT_FONT_TIME, FONT_KEY_LECO_38_BOLD_NUMBERS) == 0
+          ? LAYOUT_FONT_COMPENSATOR_LECO_38
+          : LAYOUT_FONT_COMPENSATOR_DEFAULT;
+  const int16_t time_row_origin = base_margin - time_font_compensator;
+  const int16_t time_row_width =
+      PBL_IF_ROUND_ELSE(screen_width - 2 * base_margin + 2 * time_font_compensator,
+                        screen_width - time_row_origin);
+  const GRect time_row_frame =
+      GRect(time_row_origin, time_top, time_row_width, LAYOUT_TIME_LAYER_HEIGHT);
+  data->time_row_layer = layer_create(time_row_frame);
+  layer_add_child(window_layer, data->time_row_layer);
 
-  const int16_t ampm_y = time_top;
-  GRect ampm_frame = GRect(base_margin, ampm_y, LAYOUT_AMPM_LAYER_WIDTH,
-                           LAYOUT_AMPM_LAYER_HEIGHT);
-  data->ampm_layer = text_layer_create(ampm_frame);
-  text_layer_set_background_color(data->ampm_layer, GColorClear);
-  text_layer_set_text_color(data->ampm_layer, COLOR_TEXT_DEFAULT);
-  text_layer_set_font(data->ampm_layer,
-                      fonts_get_system_font(LAYOUT_FONT_AMPM));
-  text_layer_set_text_alignment(data->ampm_layer, GTextAlignmentLeft);
-  layer_add_child(window_layer, text_layer_get_layer(data->ampm_layer));
+  data->time_layer =
+      text_layer_create(GRect(0, 0, time_row_frame.size.w, time_row_frame.size.h));
+  text_layer_set_background_color(data->time_layer, GColorClear);
+  text_layer_set_text_color(data->time_layer, COLOR_TEXT_DEFAULT);
+  text_layer_set_font(data->time_layer, fonts_get_system_font(LAYOUT_FONT_TIME));
+  layer_add_child(data->time_row_layer, text_layer_get_layer(data->time_layer));
+
+  data->time_meridiem_layer = text_layer_create(
+      GRect(0, LAYOUT_TIME_AM_PM_Y_OFFSET, LAYOUT_TIME_AM_PM_LAYER_WIDTH,
+            LAYOUT_TIME_AM_PM_LAYER_HEIGHT));
+  text_layer_set_background_color(data->time_meridiem_layer, GColorClear);
+  text_layer_set_text_color(data->time_meridiem_layer, COLOR_TEXT_DEFAULT);
+  text_layer_set_font(data->time_meridiem_layer,
+                      fonts_get_system_font(LAYOUT_FONT_TIME_AM_PM));
+  layer_add_child(data->time_row_layer,
+                  text_layer_get_layer(data->time_meridiem_layer));
+  layer_set_hidden(text_layer_get_layer(data->time_meridiem_layer), true);
 
   init_text_layer(window_layer, &data->relative_info_layer, relative_info_y,
                   LAYOUT_RELATIVE_INFO_LAYER_HEIGHT, 0,
@@ -503,8 +527,6 @@ static void main_window_load(Window *window) {
 
   time_traveler_main_window_view_model_announce_changed(&data->view_model);
 
-  update_ampm_position(data);
-
   const GRect map_rect = time_traveler_calibrated_map_rect(data);
   time_traveler_overlay_update(&data->overlay, map_rect.size.w,
                                map_rect.size.h);
@@ -528,10 +550,11 @@ static void main_window_unload(Window *window) {
   gbitmap_destroy(data->world_map_image);
   text_layer_destroy(data->city_layer);
   text_layer_destroy(data->time_layer);
-  text_layer_destroy(data->ampm_layer);
+  text_layer_destroy(data->time_meridiem_layer);
   text_layer_destroy(data->relative_info_layer);
   text_layer_destroy(data->fake_statusbar);
   text_layer_destroy(data->pagination_layer);
+  layer_destroy(data->time_row_layer);
 }
 
 static void click_config_provider(void *context) {

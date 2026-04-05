@@ -166,7 +166,7 @@ void init_statusbar_text_layer(Layer *parent, TextLayer **layer) {
       GRect(0, 0, layer_get_bounds(parent).size.w - 2 * status_margin,
             STATUS_BAR_LAYER_HEIGHT);
   const GSize text_size = graphics_text_layout_get_content_size(
-      "00:00 PM", font, status_bounds, GTextOverflowModeTrailingEllipsis,
+      "00:00", font, status_bounds, GTextOverflowModeTrailingEllipsis,
       GTextAlignmentCenter);
   const int16_t text_height =
       text_size.h > 0 ? text_size.h : STATUS_BAR_LAYER_HEIGHT;
