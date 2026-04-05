@@ -25,20 +25,13 @@
       "watchface": false
     },
     "messageKeys": [
-      "request_overlay",
-      "overlay_map_width",
-      "overlay_map_height",
-      "overlay_version",
-      "overlay_total_rows",
-      "overlay_row_start",
-      "overlay_row_count",
-      "overlay_row_data",
-      "request_city_data",
-      "city_data_start",
-      "city_data_count",
-      "city_data_total",
-      "city_data",
-      "user_city_index"
+      "REQUEST_CITY_DATA",
+      "CITY_DATA_START",
+      "CITY_DATA_COUNT",
+      "CITY_DATA_TOTAL",
+      "CITY_DATA",
+      "USER_CITY_INDEX",
+      "SETTING_PINNED_CITIES"
     ],
     "resources": {
       "media": [

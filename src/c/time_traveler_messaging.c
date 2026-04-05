@@ -1,6 +1,6 @@
 #include "time_traveler_messaging.h"
 #include "time_traveler_overlay.h"
-#include "message_keys.auto.h"
+#include "time_traveler_settings.h"
 #include <string.h>
 
 typedef struct {
@@ -16,12 +16,27 @@ typedef struct {
 static MessagingContext s_messaging_ctx;
 
 static void prv_inbox_received(DictionaryIterator *iter, void *context) {
+  // Check for settings update first
+  Tuple *pinned_cities_tuple = dict_find(iter, MESSAGE_KEY_SETTING_PINNED_CITIES);
+  if (pinned_cities_tuple) {
+    if (pinned_cities_tuple->type == TUPLE_CSTRING) {
+      // Parse the JSON string of pinned cities
+      const char *json_str = pinned_cities_tuple->value->cstring;
+      APP_LOG(APP_LOG_LEVEL_INFO, "Received pinned cities: %s", json_str);
+      
+      // For now, just mark that we need to reload settings
+      // The actual parsing would be more complex and require a JSON parser
+      time_traveler_settings_load();
+    }
+    return;
+  }
+
   // Check for city data
-  Tuple *data_start = dict_find(iter, MESSAGE_KEY_city_data_start);
-  Tuple *data_count = dict_find(iter, MESSAGE_KEY_city_data_count);
-  Tuple *data_total = dict_find(iter, MESSAGE_KEY_city_data_total);
-  Tuple *data_payload = dict_find(iter, MESSAGE_KEY_city_data);
-  Tuple *user_idx = dict_find(iter, MESSAGE_KEY_user_city_index);
+  Tuple *data_start = dict_find(iter, MESSAGE_KEY_CITY_DATA_START);
+  Tuple *data_count = dict_find(iter, MESSAGE_KEY_CITY_DATA_COUNT);
+  Tuple *data_total = dict_find(iter, MESSAGE_KEY_CITY_DATA_TOTAL);
+  Tuple *data_payload = dict_find(iter, MESSAGE_KEY_CITY_DATA);
+  Tuple *user_idx = dict_find(iter, MESSAGE_KEY_USER_CITY_INDEX);
 
   if (data_start && data_count && data_total && data_payload) {
     if (data_payload->type != TUPLE_BYTE_ARRAY) {
@@ -107,7 +122,7 @@ void time_traveler_messaging_request_city_data(void) {
     return;
   }
 
-  dict_write_uint8(iter, MESSAGE_KEY_request_city_data, 1);
+  dict_write_uint8(iter, MESSAGE_KEY_REQUEST_CITY_DATA, 1);
   dict_write_end(iter);
 
   result = app_message_outbox_send();
