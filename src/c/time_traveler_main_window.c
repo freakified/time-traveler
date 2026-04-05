@@ -539,6 +539,12 @@ static void click_config_provider(void *context) {
                                 time_traveler_scroll_up_click_handler);
   window_single_click_subscribe(BUTTON_ID_DOWN,
                                 time_traveler_scroll_down_click_handler);
+  window_long_click_subscribe(BUTTON_ID_UP, 0,
+                              time_traveler_scroll_up_long_click_handler, NULL);
+  window_long_click_subscribe(BUTTON_ID_DOWN, 0,
+                              time_traveler_scroll_down_long_click_handler, NULL);
+  window_single_click_subscribe(BUTTON_ID_SELECT,
+                                time_traveler_scroll_select_click_handler);
 }
 
 void time_traveler_main_window_push(WorldClockData *data) {

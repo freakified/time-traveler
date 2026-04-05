@@ -11,3 +11,6 @@ typedef enum {
 void time_traveler_scroll_ask(WorldClockData *data, ScrollDirection direction);
 void time_traveler_scroll_up_click_handler(ClickRecognizerRef recognizer, void *context);
 void time_traveler_scroll_down_click_handler(ClickRecognizerRef recognizer, void *context);
+void time_traveler_scroll_up_long_click_handler(ClickRecognizerRef recognizer, void *context);
+void time_traveler_scroll_down_long_click_handler(ClickRecognizerRef recognizer, void *context);
+void time_traveler_scroll_select_click_handler(ClickRecognizerRef recognizer, void *context);
