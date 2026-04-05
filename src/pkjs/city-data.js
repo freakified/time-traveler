@@ -5,7 +5,7 @@ var lastSentCityData = null;
 var cachedPinnedCities = null;
 
 function sendDictionary(dictionary, success, failure) {
-  Pebble.sendAppMessage(dictionary, success, function(error) {
+  Pebble.sendAppMessage(dictionary, success, function (error) {
     console.log("sendAppMessage failed", JSON.stringify(error));
     if (failure) {
       failure(error);
@@ -15,7 +15,7 @@ function sendDictionary(dictionary, success, failure) {
 
 function getPinnedCities() {
   if (cachedPinnedCities) return cachedPinnedCities;
-  
+
   try {
     var savedSettings = localStorage.getItem('timeTravelerSettings');
     if (savedSettings) {
@@ -29,15 +29,15 @@ function getPinnedCities() {
   } catch (e) {
     console.log('Error parsing pinned cities:', e);
   }
-  
-  // Default to sensible world cities if no setting found
+
+  // Default to some fun cities around the world if no setting found
   return [
     "HONOLULU", "ANCHORAGE", "SAN FRANCISCO", "DENVER", "CHICAGO", "NEW YORK",
     "ST. JOHNS", "RIO DE JANEIRO", "LONDON", "BERLIN", "CAIRO", "MOSCOW",
     "DUBAI", "DELHI", "KATHMANDU", "BANGKOK", "BEIJING", "TOKYO", "SYDNEY",
     "WELLINGTON"
   ];
-  }
+}
 
 
 function getPinnedCityIndices() {
@@ -56,7 +56,7 @@ function computeCityDataBlob(now) {
   var CITIES = timezone.CITIES;
   var pinnedIndices = getPinnedCityIndices();
   var blob = [];
-  
+
   // Only include pinned fixed cities
   for (var i = 0; i < pinnedIndices.length; i++) {
     var cityIdx = pinnedIndices[i];
@@ -113,7 +113,7 @@ function sendCityData(coords) {
 
   function sendChunk(index) {
     if (index >= chunks.length) return;
-    sendDictionary(chunks[index], function() {
+    sendDictionary(chunks[index], function () {
       sendChunk(index + 1);
     });
   }
