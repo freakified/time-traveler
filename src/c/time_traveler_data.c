@@ -39,7 +39,7 @@ void time_traveler_view_model_set_relative_info(
   int16_t mins = abs_minutes % 60;
   int sign = (relative_offset_minutes >= 0) ? 1 : -1;
 
-  char day_str[16]; // Increased for safety
+  char day_str[16];
   if (data_point->day_label == -1) {
     strcpy(day_str, "YESTERDAY");
   } else if (data_point->day_label == 1) {
@@ -48,7 +48,7 @@ void time_traveler_view_model_set_relative_info(
     strcpy(day_str, "TODAY");
   }
 
-  char offset_str[16]; // Increased for safety
+  char offset_str[16];
   if (mins == 0) {
     snprintf(offset_str, sizeof(offset_str), "%c%d HRS", sign > 0 ? '+' : '-',
              hours);
@@ -70,6 +70,8 @@ static WorldClockDataPoint s_user_location_dp = {
 #else
     .city = "CURRENT LOCATION",
 #endif
+    .latitude = 0,
+    .longitude = 0,
     .offset_minutes = 0,
     .day_label = 0,
     .is_night = false};
@@ -87,10 +89,8 @@ void time_traveler_data_set_user_location(float lat, float lon) {
 bool time_traveler_data_has_user_location(void) { return s_has_user_location; }
 
 void time_traveler_data_get_user_location(float *lat, float *lon) {
-  if (lat)
-    *lat = s_user_lat;
-  if (lon)
-    *lon = s_user_lon;
+  if (lat) *lat = s_user_lat;
+  if (lon) *lon = s_user_lon;
 }
 
 bool time_traveler_data_is_user_location(WorldClockDataPoint *dp) {
@@ -106,10 +106,9 @@ time_traveler_data_point_view_model_numbers(WorldClockDataPoint *data_point) {
   struct tm *current_local = localtime(&now);
 
   if (data_point == &s_user_location_dp) {
-    // For user's actual location, just use the watch's current time
     return (WorldClockDataViewNumbers){
         .hour = current_local->tm_hour,
-        .offset = 0, // 0 relative offset (it IS local time)
+        .offset = 0,
         .minute = current_local->tm_min,
     };
   }
@@ -232,126 +231,52 @@ void time_traveler_view_model_fill_night_mode(
 void time_traveler_view_model_deinit(WorldClockMainWindowViewModel *model) {}
 
 // ============================================================
-// 49 Casio cities: names only (offsets/day/night come from JS)
+// Dynamic city list — populated entirely from JS blob
 // ============================================================
-WorldClockDataPoint s_data_points[] = {
-    {.city = "PAGO PAGO"},     {.city = "HONOLULU"},
-    {.city = "ANCHORAGE"},     {.city = "VANCOUVER"},
-    {.city = "SAN FRANCISCO"}, {.city = "EDMONTON"},
-    {.city = "DENVER"},        {.city = "MEXICO CITY"},
-    {.city = "CHICAGO"},       {.city = "NEW YORK"},
-    {.city = "SANTIAGO"},      {.city = "HALIFAX"},
-    {.city = "ST. JOHNS"},     {.city = "RIO DE JANEIRO"},
-    {.city = "F. DE NORONHA"}, {.city = "PRAIA"},
-    {.city = "UTC"},           {.city = "LISBON"},
-    {.city = "LONDON"},        {.city = "MADRID"},
-    {.city = "PARIS"},         {.city = "ROME"},
-    {.city = "BERLIN"},        {.city = "STOCKHOLM"},
-    {.city = "ATHENS"},        {.city = "CAIRO"},
-    {.city = "JERUSALEM"},     {.city = "MOSCOW"},
-    {.city = "JEDDAH"},        {.city = "TEHRAN"},
-    {.city = "DUBAI"},         {.city = "KABUL"},
-    {.city = "KARACHI"},       {.city = "DELHI"},
-    {.city = "KATHMANDU"},     {.city = "DHAKA"},
-    {.city = "YANGON"},        {.city = "BANGKOK"},
-    {.city = "SINGAPORE"},     {.city = "HONG KONG"},
-    {.city = "BEIJING"},       {.city = "TAIPEI"},
-    {.city = "SEOUL"},         {.city = "TOKYO"},
-    {.city = "ADELAIDE"},      {.city = "GUAM"},
-    {.city = "SYDNEY"},        {.city = "NOUMEA"},
-    {.city = "WELLINGTON"},
-};
+#define MAX_JS_CITIES 50
+static WorldClockDataPoint s_cities[MAX_JS_CITIES];
+static int s_num_cities = 0;
 
-// City coordinates for map display
-static CityCoordinates s_city_coordinates[] = {
-    {-170.70, -14.27}, // Pago Pago
-    {-157.86, 21.31},  // Honolulu
-    {-149.90, 61.22},  // Anchorage
-    {-123.12, 49.28},  // Vancouver
-    {-122.42, 37.77},  // San Francisco
-    {-113.49, 53.54},  // Edmonton
-    {-104.99, 39.74},  // Denver
-    {-99.13, 19.43},   // Mexico City
-    {-87.63, 41.88},   // Chicago
-    {-74.01, 40.71},   // New York
-    {-70.67, -33.45},  // Santiago
-    {-63.57, 44.65},   // Halifax
-    {-52.71, 47.56},   // St. Johns
-    {-43.17, -22.91},  // Rio De Janeiro
-    {-32.42, -3.86},   // Fernando de Noronha
-    {-23.51, 14.92},   // Praia
-    {0.00, 0.00},      // UTC
-    {-9.14, 38.72},    // Lisbon
-    {-0.13, 51.51},    // London
-    {-3.70, 40.42},    // Madrid
-    {2.35, 48.86},     // Paris
-    {12.50, 41.90},    // Rome
-    {13.41, 52.52},    // Berlin
-    {18.07, 59.33},    // Stockholm
-    {23.73, 37.98},    // Athens
-    {31.24, 30.04},    // Cairo
-    {35.23, 31.77},    // Jerusalem
-    {37.62, 55.76},    // Moscow
-    {39.19, 21.49},    // Jeddah
-    {51.39, 35.69},    // Tehran
-    {55.27, 25.20},    // Dubai
-    {69.17, 34.53},    // Kabul
-    {67.01, 24.86},    // Karachi
-    {77.21, 28.61},    // Delhi
-    {85.32, 27.72},    // Kathmandu
-    {90.41, 23.81},    // Dhaka
-    {96.20, 16.87},    // Yangon
-    {100.50, 13.76},   // Bangkok
-    {103.82, 1.35},    // Singapore
-    {114.17, 22.32},   // Hong Kong
-    {116.40, 39.90},   // Beijing
-    {121.57, 25.03},   // Taipei
-    {126.98, 37.57},   // Seoul
-    {139.69, 35.68},   // Tokyo
-    {138.60, -34.93},  // Adelaide
-    {144.79, 13.44},   // Guam
-    {151.21, -33.87},  // Sydney
-    {166.46, -22.28},  // Noumea
-    {174.78, -41.29},  // Wellington
-};
-
-// Apply binary blob from JS: 4 bytes per city
-//   bytes 0-1: offset_minutes (int16, big-endian)
-//   byte 2:    day_label (0=today, 1=tomorrow, 255=yesterday)
-//   byte 3:    is_night (0 or 1)
+// Apply binary blob from JS: 24 bytes per city
+//   bytes 0-15:  city name, null-terminated
+//   bytes 16-17: latitude  × 100 as int16, big-endian
+//   bytes 18-19: longitude × 100 as int16, big-endian
+//   bytes 20-21: offset_minutes as int16, big-endian
+//   byte  22:    day_label (0=today, 1=tomorrow, 255=yesterday)
+//   byte  23:    is_night (0 or 1)
 void time_traveler_data_apply_js_blob(const uint8_t *blob, uint16_t length) {
-  int num_cities = time_traveler_num_data_points();
-  int received = length / 4;
-  int count = (received < num_cities) ? received : num_cities;
+  int received = length / 24;
+  if (received > MAX_JS_CITIES) received = MAX_JS_CITIES;
 
-  for (int i = 0; i < count; i++) {
-    const uint8_t *p = &blob[i * 4];
-    int16_t offset = (int16_t)((p[0] << 8) | p[1]);
-    int8_t day_label = (p[2] == 255) ? -1 : (int8_t)p[2];
-    bool is_night = (p[3] != 0);
+  for (int i = 0; i < received; i++) {
+    const uint8_t *p = &blob[i * 24];
+    WorldClockDataPoint *dp = &s_cities[i];
 
-    WorldClockDataPoint *dp = time_traveler_data_point_at(i);
-    if (dp) {
-      dp->offset_minutes = offset;
-      dp->day_label = day_label;
-      dp->is_night = is_night;
-    }
+    // Name: null-terminated, at most 15 chars from blob
+    strncpy(dp->city, (const char *)p, 15);
+    dp->city[15] = '\0';
+
+    // Latitude and longitude (×100, big-endian int16)
+    int16_t lat_x100 = (int16_t)((p[16] << 8) | p[17]);
+    int16_t lon_x100 = (int16_t)((p[18] << 8) | p[19]);
+    dp->latitude  = (float)lat_x100 / 100.0f;
+    dp->longitude = (float)lon_x100 / 100.0f;
+
+    // UTC offset
+    dp->offset_minutes = (int16_t)((p[20] << 8) | p[21]);
+
+    // Day label
+    dp->day_label = (p[22] == 255) ? -1 : (int8_t)p[22];
+
+    // Night flag
+    dp->is_night = (p[23] != 0);
   }
-}
 
-int time_traveler_num_master_cities(void) {
-  return ARRAY_LENGTH(s_data_points);
-}
-
-const char *time_traveler_data_get_master_city_name(int master_idx) {
-  if (master_idx < 0 || master_idx >= time_traveler_num_master_cities()) {
-    return NULL;
-  }
-  return s_data_points[master_idx].city;
+  s_num_cities = received;
 }
 
 int time_traveler_num_data_points(void) {
-  int count = global_settings.num_pinned_cities;
+  int count = s_num_cities;
   if (s_has_user_location) {
     count++;
   }
@@ -364,21 +289,9 @@ static int prv_get_user_location_insert_index(void) {
 
   // Find where to insert user location based on longitude
   int insert_idx = 0;
-  for (int i = 0; i < global_settings.num_pinned_cities; i++) {
-    // Find master index for each pinned city to get its longitude
-    const char *pinned_name = global_settings.pinned_cities[i];
-    int master_idx = -1;
-    for (int j = 0; j < (int)ARRAY_LENGTH(s_data_points); j++) {
-      if (strcmp(s_data_points[j].city, pinned_name) == 0) {
-        master_idx = j;
-        break;
-      }
-    }
-
-    if (master_idx >= 0) {
-      if (s_user_lon < s_city_coordinates[master_idx].longitude) {
-        break;
-      }
+  for (int i = 0; i < s_num_cities; i++) {
+    if (s_user_lon < s_cities[i].longitude) {
+      break;
     }
     insert_idx++;
   }
@@ -396,56 +309,38 @@ WorldClockDataPoint *time_traveler_data_point_at(int idx) {
       return &s_user_location_dp;
     }
     if (idx > user_idx) {
-      idx--; // Map to index in global_settings.pinned_cities
+      idx--;
     }
   }
 
-  const char *pinned_name = global_settings.pinned_cities[idx];
-  for (int i = 0; i < (int)ARRAY_LENGTH(s_data_points); i++) {
-    if (strcmp(s_data_points[i].city, pinned_name) == 0) {
-      return &s_data_points[i];
-    }
-  }
-
-  return NULL;
+  if (idx < 0 || idx >= s_num_cities) return NULL;
+  return &s_cities[idx];
 }
 
-int time_traveler_data_get_master_index(int filtered_idx) {
-  if (filtered_idx < 0 || filtered_idx >= time_traveler_num_data_points()) {
-    return -1;
+static CityCoordinates s_actual_user_coords;
+static CityCoordinates s_city_coord_ret;
+
+CityCoordinates *time_traveler_get_city_coordinates(int city_index) {
+  if (city_index < 0 || city_index >= time_traveler_num_data_points()) {
+    return NULL;
   }
 
   if (s_has_user_location) {
     int user_idx = prv_get_user_location_insert_index();
-    if (filtered_idx == user_idx) {
-      return -2; // Special value for user location
+    if (city_index == user_idx) {
+      s_actual_user_coords.latitude = s_user_lat;
+      s_actual_user_coords.longitude = s_user_lon;
+      return &s_actual_user_coords;
     }
-    if (filtered_idx > user_idx) {
-      filtered_idx--;
+    if (city_index > user_idx) {
+      city_index--;
     }
   }
 
-  const char *pinned_name = global_settings.pinned_cities[filtered_idx];
-  for (int i = 0; i < (int)ARRAY_LENGTH(s_data_points); i++) {
-    if (strcmp(s_data_points[i].city, pinned_name) == 0) {
-      return i;
-    }
-  }
-  return -1;
-}
-
-static CityCoordinates s_actual_user_coords;
-CityCoordinates *time_traveler_get_city_coordinates(int city_index) {
-  int master_idx = time_traveler_data_get_master_index(city_index);
-  if (master_idx == -2) {
-    s_actual_user_coords.latitude = s_user_lat;
-    s_actual_user_coords.longitude = s_user_lon;
-    return &s_actual_user_coords;
-  }
-  if (master_idx < 0) {
-    return NULL;
-  }
-  return &s_city_coordinates[master_idx];
+  if (city_index < 0 || city_index >= s_num_cities) return NULL;
+  s_city_coord_ret.latitude  = s_cities[city_index].latitude;
+  s_city_coord_ret.longitude = s_cities[city_index].longitude;
+  return &s_city_coord_ret;
 }
 
 int time_traveler_index_of_data_point(WorldClockDataPoint *dp) {

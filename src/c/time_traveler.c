@@ -8,7 +8,7 @@
 #include <pebble.h>
 
 #define PERSIST_KEY_USER_CITY_INDEX 100
-#define PERSIST_KEY_CITY_DATA_BLOB 101
+#define PERSIST_KEY_CITY_DATA_BLOB 105  // bumped to avoid replaying old-format blobs
 #define PERSIST_KEY_USER_LAT 102
 #define PERSIST_KEY_USER_LON 103
 
@@ -68,7 +68,7 @@ static void set_data_point(WorldClockData *data, WorldClockDataPoint *dp) {
 }
 
 static void prv_city_data_received(const uint8_t *blob, uint16_t length,
-                                     int8_t user_city_index, void *context) {
+                                     void *context) {
   WorldClockData *data = window_get_user_data(time_traveler_main_window_get());
   if (!data) return;
 
@@ -87,11 +87,16 @@ static void prv_city_data_received(const uint8_t *blob, uint16_t length,
   // Cache identifying data for next startup
   persist_write_data(PERSIST_KEY_CITY_DATA_BLOB, blob, length);
 
-  // Apply to current city and refresh display
+  // If the current city was removed from the list, its pointer is now stale.
+  // Fall back to user location (guaranteed to exist if GPS is on) or index 0.
+  if (data->data_point &&
+      time_traveler_index_of_data_point(data->data_point) < 0) {
+    data->data_point = NULL;
+  }
+
   if (data->data_point) {
     set_data_point(data, data->data_point);
   } else if (time_traveler_num_data_points() > 0) {
-    // Check if we can find current location now
     int user_idx = -1;
     for (int i = 0; i < time_traveler_num_data_points(); i++) {
       if (time_traveler_data_is_user_location(time_traveler_data_point_at(i))) {
@@ -99,12 +104,7 @@ static void prv_city_data_received(const uint8_t *blob, uint16_t length,
         break;
       }
     }
-    
-    if (user_idx >= 0) {
-      set_data_point(data, time_traveler_data_point_at(user_idx));
-    } else {
-      set_data_point(data, time_traveler_data_point_at(0));
-    }
+    set_data_point(data, time_traveler_data_point_at(user_idx >= 0 ? user_idx : 0));
   }
 
   if (data->data_point) {
@@ -149,7 +149,7 @@ static void init() {
   // Check for cached city data
   if (persist_exists(PERSIST_KEY_CITY_DATA_BLOB)) {
     // Read up to current number of cities, or what's stored
-    uint8_t blob[49 * 4]; // Max possible cities
+    static uint8_t blob[50 * 24]; // Max possible cities (50 × 24 bytes each); static to avoid stack overflow
     int read = persist_read_data(PERSIST_KEY_CITY_DATA_BLOB, blob, sizeof(blob));
     if (read > 0) {
       time_traveler_data_apply_js_blob(blob, (uint16_t)read);

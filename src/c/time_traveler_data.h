@@ -46,7 +46,9 @@ void time_traveler_main_window_view_model_announce_changed(
     WorldClockMainWindowViewModel *model);
 
 typedef struct {
-  char *city;
+  char city[20];         // City name (from JS, or "CURRENT LOCATION" for GPS city)
+  float latitude;        // City latitude (from JS)
+  float longitude;       // City longitude (from JS)
   int16_t offset_minutes; // current offset from UTC in minutes (from JS)
   int8_t day_label;       // -1 = yesterday, 0 = today, 1 = tomorrow (from JS)
   bool is_night;          // whether city is currently in nighttime (from JS)
@@ -94,8 +96,6 @@ GColor time_traveler_data_point_color(WorldClockDataPoint *data_point,
                                        bool is_night);
 
 int time_traveler_num_data_points(void);
-int time_traveler_num_master_cities(void);
-const char *time_traveler_data_get_master_city_name(int master_idx);
 
 void time_traveler_data_set_user_location(float lat, float lon);
 bool time_traveler_data_has_user_location(void);
@@ -115,7 +115,5 @@ typedef struct {
 
 CityCoordinates *time_traveler_get_city_coordinates(int city_index);
 
-extern WorldClockDataPoint s_data_points[];
-
-// Dynamic city data from JS
+// Apply binary blob from JS: 24 bytes per city
 void time_traveler_data_apply_js_blob(const uint8_t *blob, uint16_t length);

@@ -33,8 +33,6 @@
       "CITY_DATA_COUNT",
       "CITY_DATA_TOTAL",
       "CITY_DATA",
-      "USER_CITY_INDEX",
-      "SETTING_PINNED_CITIES",
       "USER_LAT",
       "USER_LON"
     ],

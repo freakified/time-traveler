@@ -3,10 +3,9 @@ var timezone = require('./timezone');
 
 var USE_LOCAL_CONFIG = true;
 var configDataUri = 'https://halcyon.freakified.net/';
-var configLocalUri = 'http://10.25.219.9:3000/index.html';
+var configLocalUri = 'http://10.25.219.24:3000/index.html';
 
 var dstCheckTimer = null;
-var cachedSettings = null;
 
 function startDstChecks() {
   if (dstCheckTimer) clearInterval(dstCheckTimer);
@@ -15,50 +14,13 @@ function startDstChecks() {
   }, 30 * 60 * 1000);
 }
 
-function sendSettingsToWatch() {
-  if (!cachedSettings) {
-    console.log('No settings cached yet');
-    return;
-  }
-
-  var dict = {};
-
-  // Send pinned cities setting as a byte array of indices
-  if (cachedSettings.SETTING_PINNED_CITIES) {
-    var indices = cityData.getPinnedCityIndices();
-    console.log('Pinned city indices for watch: ' + JSON.stringify(indices));
-    dict['SETTING_PINNED_CITIES'] = indices;
-    
-    // Also try to send current coords if available
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(function(pos) {
-        dict.USER_LAT = Math.round(pos.coords.latitude * 100);
-        dict.USER_LON = Math.round(pos.coords.longitude * 100);
-        console.log('Sending settings with coords: ' + JSON.stringify(dict));
-        Pebble.sendAppMessage(dict);
-      }, function() {
-        console.log('Sending settings without coords: ' + JSON.stringify(dict));
-        Pebble.sendAppMessage(dict);
-      }, { timeout: 2000, maximumAge: 600000 });
-      return; // Handled in callback
-    }
-  }
-
-  console.log('Sending settings to watch: ' + JSON.stringify(dict));
-
-  Pebble.sendAppMessage(dict,
-    function () { console.log('Settings sent to watch successfully'); },
-    function (e) { console.log('Error sending settings to watch: ' + JSON.stringify(e)); }
-  );
-}
-
 Pebble.addEventListener("ready", function () {
   startDstChecks();
-  
+
   if (navigator.geolocation) {
-    navigator.geolocation.getCurrentPosition(function(pos) {
+    navigator.geolocation.getCurrentPosition(function (pos) {
       cityData.sendCityData(pos.coords);
-    }, function() {
+    }, function () {
       cityData.sendCityData();
     }, {
       enableHighAccuracy: false,
@@ -68,15 +30,6 @@ Pebble.addEventListener("ready", function () {
   } else {
     cityData.sendCityData();
   }
-
-  // Restore settings from previous session
-  var savedSettings = localStorage.getItem('timeTravelerSettings');
-  if (savedSettings) {
-    try { cachedSettings = JSON.parse(savedSettings); } catch (e) { }
-  }
-
-  // Send any cached settings to watch
-  sendSettingsToWatch();
 });
 
 Pebble.addEventListener("appmessage", function (event) {
@@ -89,7 +42,7 @@ Pebble.addEventListener("appmessage", function (event) {
   }
 });
 
-// ---- Configuration ---- 
+// ---- Configuration ----
 
 Pebble.addEventListener('showConfiguration', function () {
   var url = USE_LOCAL_CONFIG ? configLocalUri : configDataUri;
@@ -146,11 +99,9 @@ Pebble.addEventListener('webviewclosed', function (e) {
 
   // Save to localStorage for persistence
   localStorage.setItem('timeTravelerSettings', JSON.stringify(configData));
-  cachedSettings = configData;
 
-  // Clear cached pinned cities so they get re-read
+  // Clear cached city list and send fresh data to watch
   cityData.clearCachedPinnedCities();
-
-  // Convert to proper format and send to watch
-  sendSettingsToWatch();
+  cityData.forceResend();
+  cityData.sendCityData();
 });

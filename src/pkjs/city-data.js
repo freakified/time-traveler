@@ -39,37 +39,47 @@ function getPinnedCities() {
   ];
 }
 
-
-function getPinnedCityIndices() {
-  var pinnedNames = getPinnedCities();
-  var indices = [];
-  var CITIES = timezone.CITIES;
-  for (var i = 0; i < CITIES.length; i++) {
-    if (pinnedNames.includes(CITIES[i].name)) {
-      indices.push(i);
-    }
-  }
-  return indices;
+// Encode a signed 16-bit value as two big-endian bytes, appending to blob array
+function pushInt16BE(blob, value) {
+  var v = value & 0xFFFF;
+  blob.push((v >> 8) & 0xFF);
+  blob.push(v & 0xFF);
 }
 
+// New blob format: 24 bytes per city
+//   bytes 0-15:  city name, null-terminated (up to 15 chars)
+//   bytes 16-17: latitude  × 100 as int16, big-endian
+//   bytes 18-19: longitude × 100 as int16, big-endian
+//   bytes 20-21: offset_minutes as int16, big-endian
+//   byte  22:    day_label (0=today, 1=tomorrow, 255=yesterday)
+//   byte  23:    is_night (0 or 1)
 function computeCityDataBlob(now) {
   var CITIES = timezone.CITIES;
-  var pinnedIndices = getPinnedCityIndices();
+  var pinnedNames = getPinnedCities();
   var blob = [];
 
-  // Only include pinned fixed cities
-  for (var i = 0; i < pinnedIndices.length; i++) {
-    var cityIdx = pinnedIndices[i];
-    var city = CITIES[cityIdx];
-    var offset = timezone.cityOffsetMinutes(city, now);
-    var label = timezone.dayLabelForCity(city, now);
-    var labelByte = label < 0 ? FULL_NIGHT_SENTINEL : label;
-    var isNight = 0;
+  for (var i = 0; i < CITIES.length; i++) {
+    var city = CITIES[i];
+    if (!pinnedNames.includes(city.name)) continue;
 
-    blob.push((offset >> 8) & 0xFF);
-    blob.push(offset & 0xFF);
-    blob.push(labelByte);
-    blob.push(isNight);
+    // Name: 16 bytes, null-padded
+    var name = city.name.substring(0, 15);
+    for (var c = 0; c < 16; c++) {
+      blob.push(c < name.length ? name.charCodeAt(c) : 0);
+    }
+
+    // lat × 100, lon × 100 as int16 big-endian
+    pushInt16BE(blob, Math.round(city.lat * 100));
+    pushInt16BE(blob, Math.round(city.lon * 100));
+
+    // offset_minutes as int16 big-endian
+    var offset = timezone.cityOffsetMinutes(city, now);
+    pushInt16BE(blob, offset);
+
+    // day_label and is_night
+    var label = timezone.dayLabelForCity(city, now);
+    blob.push(label < 0 ? FULL_NIGHT_SENTINEL : label);
+    blob.push(0); // is_night
   }
   return blob;
 }
@@ -91,7 +101,7 @@ function sendCityData(coords) {
   }
   lastSentCityData = blob;
 
-  var CHUNK_SIZE = 24;
+  var CHUNK_SIZE = 120; // 5 cities × 24 bytes
   var chunks = [];
   for (var start = 0; start < blob.length; start += CHUNK_SIZE) {
     var chunk = blob.slice(start, start + CHUNK_SIZE);
@@ -103,7 +113,6 @@ function sendCityData(coords) {
     };
 
     if (start === 0 && coords) {
-      // Send coords as integers multiplied by 100 to preserve precision in int32
       dict.USER_LAT = Math.round(coords.latitude * 100);
       dict.USER_LON = Math.round(coords.longitude * 100);
     }
@@ -132,5 +141,4 @@ module.exports = {
   sendCityData: sendCityData,
   forceResend: forceResend,
   clearCachedPinnedCities: clearCachedPinnedCities,
-  getPinnedCityIndices: getPinnedCityIndices
 };

@@ -7,7 +7,6 @@
 
 typedef void (*WorldClockMessageCityDataCallback)(const uint8_t *blob,
                                                   uint16_t length,
-                                                  int8_t user_city_index,
                                                   void *context);
 
 void time_traveler_messaging_init(WorldClockMessageCityDataCallback on_city_data_received,

@@ -4,46 +4,29 @@
 #include "time_traveler_data.h"
 #include <string.h>
 
+// 50 cities × 24 bytes = 1200 bytes max
+#define CITY_DATA_BUF_SIZE 1200
+
 typedef struct {
   WorldClockMessageCityDataCallback on_city_data_received;
   void *context;
-  // City data reassembly buffer
-  uint8_t city_data_buf[256]; // 49 cities * 4 bytes = 196 bytes max
+  uint8_t city_data_buf[CITY_DATA_BUF_SIZE];
   uint16_t city_data_total;
   uint16_t city_data_received;
-  int8_t city_data_user_index;
 } MessagingContext;
 
 static MessagingContext s_messaging_ctx;
 
 static void prv_inbox_received(DictionaryIterator *iter, void *context) {
-  // Check for settings update first
-  Tuple *pinned_cities_tuple = dict_find(iter, MESSAGE_KEY_SETTING_PINNED_CITIES);
-  if (pinned_cities_tuple) {
-    if (pinned_cities_tuple->type == TUPLE_BYTE_ARRAY) {
-      const uint8_t *indices = pinned_cities_tuple->value->data;
-      int count = pinned_cities_tuple->length;
-      APP_LOG(APP_LOG_LEVEL_INFO, "Received %d pinned cities indices", count);
-      
-      time_traveler_settings_set_pinned_indices(indices, count);
-      
-      // Request new city data from JS (which will only include pinned cities)
-      time_traveler_messaging_request_city_data();
-    }
-    return;
-  }
-
   // Check for city data
   Tuple *data_start = dict_find(iter, MESSAGE_KEY_CITY_DATA_START);
   Tuple *data_count = dict_find(iter, MESSAGE_KEY_CITY_DATA_COUNT);
   Tuple *data_total = dict_find(iter, MESSAGE_KEY_CITY_DATA_TOTAL);
   Tuple *data_payload = dict_find(iter, MESSAGE_KEY_CITY_DATA);
-  Tuple *user_idx = dict_find(iter, MESSAGE_KEY_USER_CITY_INDEX);
   Tuple *user_lat_tuple = dict_find(iter, MESSAGE_KEY_USER_LAT);
   Tuple *user_lon_tuple = dict_find(iter, MESSAGE_KEY_USER_LON);
 
   if (user_lat_tuple && user_lon_tuple) {
-    // Latitude and longitude are sent as fixed-point integers (multiplied by 100)
     float lat = (float)user_lat_tuple->value->int32 / 100.0f;
     float lon = (float)user_lon_tuple->value->int32 / 100.0f;
     time_traveler_data_set_user_location(lat, lon);
@@ -60,7 +43,7 @@ static void prv_inbox_received(DictionaryIterator *iter, void *context) {
     uint16_t count = (uint16_t)data_count->value->int32;
     uint16_t total = (uint16_t)data_total->value->int32;
 
-    if (total == 0 || total > sizeof(s_messaging_ctx.city_data_buf) ||
+    if (total == 0 || total > CITY_DATA_BUF_SIZE ||
         start + count > total ||
         data_payload->length < count) {
       APP_LOG(APP_LOG_LEVEL_WARNING, "city_data payload bounds invalid");
@@ -71,10 +54,6 @@ static void prv_inbox_received(DictionaryIterator *iter, void *context) {
     if (start == 0) {
       s_messaging_ctx.city_data_total = total;
       s_messaging_ctx.city_data_received = 0;
-      s_messaging_ctx.city_data_user_index = -1;
-      if (user_idx) {
-        s_messaging_ctx.city_data_user_index = (int8_t)user_idx->value->int32;
-      }
     }
 
     // Copy chunk into buffer
@@ -88,7 +67,6 @@ static void prv_inbox_received(DictionaryIterator *iter, void *context) {
         s_messaging_ctx.on_city_data_received(
             s_messaging_ctx.city_data_buf,
             s_messaging_ctx.city_data_total,
-            s_messaging_ctx.city_data_user_index,
             s_messaging_ctx.context);
       }
     }
