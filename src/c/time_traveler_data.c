@@ -1,6 +1,5 @@
 #include "time_traveler_data.h"
 #include "metrics.h"
-#include "time_traveler_settings.h"
 #include <pebble.h>
 
 void time_traveler_main_window_view_model_announce_changed(
@@ -95,6 +94,15 @@ void time_traveler_data_get_user_location(float *lat, float *lon) {
 
 bool time_traveler_data_is_user_location(WorldClockDataPoint *dp) {
   return (dp == &s_user_location_dp);
+}
+
+int time_traveler_data_find_user_location_index(void) {
+  for (int i = 0; i < time_traveler_num_data_points(); i++) {
+    if (time_traveler_data_is_user_location(time_traveler_data_point_at(i))) {
+      return i;
+    }
+  }
+  return -1;
 }
 
 WorldClockDataViewNumbers
@@ -233,11 +241,10 @@ void time_traveler_view_model_deinit(WorldClockMainWindowViewModel *model) {}
 // ============================================================
 // Dynamic city list — populated entirely from JS blob
 // ============================================================
-#define MAX_JS_CITIES 50
 static WorldClockDataPoint s_cities[MAX_JS_CITIES];
 static int s_num_cities = 0;
 
-// Apply binary blob from JS: 24 bytes per city
+// Apply binary blob from JS: CITY_BLOB_BYTES_PER_CITY bytes per city
 //   bytes 0-15:  city name, null-terminated
 //   bytes 16-17: latitude  × 100 as int16, big-endian
 //   bytes 18-19: longitude × 100 as int16, big-endian
@@ -245,11 +252,11 @@ static int s_num_cities = 0;
 //   byte  22:    day_label (0=today, 1=tomorrow, 255=yesterday)
 //   byte  23:    is_night (0 or 1)
 void time_traveler_data_apply_js_blob(const uint8_t *blob, uint16_t length) {
-  int received = length / 24;
+  int received = length / CITY_BLOB_BYTES_PER_CITY;
   if (received > MAX_JS_CITIES) received = MAX_JS_CITIES;
 
   for (int i = 0; i < received; i++) {
-    const uint8_t *p = &blob[i * 24];
+    const uint8_t *p = &blob[i * CITY_BLOB_BYTES_PER_CITY];
     WorldClockDataPoint *dp = &s_cities[i];
 
     // Name: null-terminated, at most 15 chars from blob

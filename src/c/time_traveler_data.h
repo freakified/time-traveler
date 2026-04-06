@@ -115,5 +115,12 @@ typedef struct {
 
 CityCoordinates *time_traveler_get_city_coordinates(int city_index);
 
-// Apply binary blob from JS: 24 bytes per city
+// City blob format constants
+#define MAX_JS_CITIES 50
+#define CITY_BLOB_BYTES_PER_CITY 24
+
+// Returns the index of the user location entry, or -1 if not present
+int time_traveler_data_find_user_location_index(void);
+
+// Apply binary blob from JS: CITY_BLOB_BYTES_PER_CITY bytes per city
 void time_traveler_data_apply_js_blob(const uint8_t *blob, uint16_t length);

@@ -44,19 +44,11 @@ GColor time_traveler_ui_palette_color_for_luminance(uint8_t luminance,
   };
 }
 
-void time_traveler_ui_recolor(GBitmap *bitmap) {
-  if (!bitmap) {
-    return;
-  }
-
-  const GColor background = COLOR_MAP_BACKGROUND;
-  const GColor foreground = COLOR_MAP_FOREGROUND;
-
+static void prv_recolor_bitmap(GBitmap *bitmap, GColor background,
+                               GColor foreground) {
+  if (!bitmap) return;
   GColor *palette = gbitmap_get_palette(bitmap);
-  if (!palette) {
-    return;
-  }
-
+  if (!palette) return;
   const uint8_t palette_size =
       time_traveler_ui_palette_size(gbitmap_get_format(bitmap));
   for (uint8_t i = 0; i < palette_size; ++i) {
@@ -68,27 +60,12 @@ void time_traveler_ui_recolor(GBitmap *bitmap) {
   }
 }
 
+void time_traveler_ui_recolor(GBitmap *bitmap) {
+  prv_recolor_bitmap(bitmap, COLOR_MAP_BACKGROUND, COLOR_MAP_FOREGROUND);
+}
+
 void time_traveler_ui_recolor_night(GBitmap *bitmap) {
-  const GColor background = COLOR_MAP_NIGHT_BACKGROUND;
-  const GColor foreground = COLOR_MAP_NIGHT_FOREGROUND;
-  if (!bitmap) {
-    return;
-  }
-
-  GColor *palette = gbitmap_get_palette(bitmap);
-  if (!palette) {
-    return;
-  }
-
-  const uint8_t palette_size =
-      time_traveler_ui_palette_size(gbitmap_get_format(bitmap));
-  for (uint8_t i = 0; i < palette_size; ++i) {
-    const uint8_t luminance = time_traveler_ui_luminance_steps(palette[i]);
-    GColor color = time_traveler_ui_palette_color_for_luminance(
-        luminance, background, foreground);
-    color.a = palette[i].a;
-    palette[i] = color;
-  }
+  prv_recolor_bitmap(bitmap, COLOR_MAP_NIGHT_BACKGROUND, COLOR_MAP_NIGHT_FOREGROUND);
 }
 
 int16_t time_traveler_ui_clamp_x(int16_t x, int16_t width) {

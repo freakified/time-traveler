@@ -344,6 +344,54 @@ static void prv_layout_time_row(WorldClockData *data) {
                    !show_meridiem);
 }
 
+void time_traveler_main_window_update_gps_arrow(WorldClockData *data,
+                                                WorldClockDataPoint *dp) {
+  if (!data->gps_arrow_layer) return;
+
+  bool is_current_location = time_traveler_data_is_user_location(dp);
+  layer_set_hidden(data->gps_arrow_layer, !is_current_location);
+
+  if (is_current_location) {
+    GRect city_frame = layer_get_frame(text_layer_get_layer(data->city_layer));
+    GFont city_font = fonts_get_system_font(LAYOUT_FONT_CITY);
+    GSize text_size = graphics_text_layout_get_content_size(
+        dp->city, city_font,
+        GRect(0, 0, city_frame.size.w, city_frame.size.h),
+        GTextOverflowModeTrailingEllipsis, GTextAlignmentLeft);
+
+    const int16_t spacing = LAYOUT_GPS_ARROW_TEXT_SPACING;
+    int16_t text_right_x;
+    if (PBL_IF_ROUND_ELSE(true, false)) {
+      int16_t half_total = (text_size.w + spacing + LAYOUT_GPS_ARROW_WIDTH) / 2;
+      int16_t center = city_frame.origin.x + city_frame.size.w / 2;
+      int16_t new_text_left = center - half_total;
+      GRect shifted_frame = city_frame;
+      shifted_frame.origin.x = new_text_left;
+      layer_set_frame(text_layer_get_layer(data->city_layer), shifted_frame);
+      text_layer_set_text_alignment(data->city_layer, GTextAlignmentLeft);
+      layer_mark_dirty(text_layer_get_layer(data->city_layer));
+      text_right_x = new_text_left + text_size.w;
+    } else {
+      text_right_x = city_frame.origin.x + text_size.w;
+    }
+    layer_set_frame(data->gps_arrow_layer,
+                    GRect(text_right_x + spacing + LAYOUT_GPS_ARROW_POSITION_ADJUST,
+                          city_frame.origin.y +
+                              (city_frame.size.h - LAYOUT_GPS_ARROW_HEIGHT) / 2 +
+                              LAYOUT_GPS_ARROW_POSITION_ADJUST,
+                          LAYOUT_GPS_ARROW_WIDTH, LAYOUT_GPS_ARROW_HEIGHT));
+    layer_mark_dirty(data->gps_arrow_layer);
+  } else if (PBL_IF_ROUND_ELSE(true, false)) {
+    GRect city_frame = layer_get_frame(text_layer_get_layer(data->city_layer));
+    GRect restored_frame = GRect(LAYOUT_BASE_MARGIN + LAYOUT_ROUND_CITY_FRAME_ADJUST,
+                                 city_frame.origin.y,
+                                 city_frame.size.w, city_frame.size.h);
+    layer_set_frame(text_layer_get_layer(data->city_layer), restored_frame);
+    text_layer_set_text_alignment(data->city_layer, GTextAlignmentCenter);
+    layer_mark_dirty(text_layer_get_layer(data->city_layer));
+  }
+}
+
 void time_traveler_main_window_update_night_mode(WorldClockData *data) {
   bool is_night = prv_is_current_city_night(data);
   if (is_night != data->view_model.is_night) {

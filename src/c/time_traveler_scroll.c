@@ -15,54 +15,7 @@ static void after_scroll_swap_text(Animation *animation, bool finished,
   time_traveler_view_model_fill_numbers(
       &data->view_model, time_traveler_data_point_view_model_numbers(data_point),
       data_point);
-
-  if (data->gps_arrow_layer) {
-    bool is_current_location = time_traveler_data_is_user_location(data_point);
-    layer_set_hidden(data->gps_arrow_layer, !is_current_location);
-
-    if (is_current_location) {
-      GRect city_frame = layer_get_frame(text_layer_get_layer(data->city_layer));
-      GFont city_font = fonts_get_system_font(LAYOUT_FONT_CITY);
-      GSize text_size = graphics_text_layout_get_content_size(
-          data_point->city, city_font,
-          GRect(0, 0, city_frame.size.w, city_frame.size.h),
-          GTextOverflowModeTrailingEllipsis, GTextAlignmentLeft);
-
-      const int16_t spacing = LAYOUT_GPS_ARROW_TEXT_SPACING;
-      int16_t text_right_x;
-      if (PBL_IF_ROUND_ELSE(true, false)) {
-        int16_t text_left_x = city_frame.origin.x + (city_frame.size.w - text_size.w) / 2;
-        text_right_x = text_left_x + text_size.w;
-
-        int16_t half_total = (text_size.w + spacing + LAYOUT_GPS_ARROW_WIDTH) / 2;
-        int16_t center = city_frame.origin.x + city_frame.size.w / 2;
-        int16_t new_text_left = center - half_total;
-        GRect shifted_frame = city_frame;
-        shifted_frame.origin.x = new_text_left;
-        layer_set_frame(text_layer_get_layer(data->city_layer), shifted_frame);
-        text_layer_set_text_alignment(data->city_layer, GTextAlignmentLeft);
-        layer_mark_dirty(text_layer_get_layer(data->city_layer));
-
-        text_right_x = new_text_left + text_size.w;
-      } else {
-        text_right_x = city_frame.origin.x + text_size.w;
-      }
-      layer_set_frame(data->gps_arrow_layer,
-                      GRect(text_right_x + spacing + LAYOUT_GPS_ARROW_POSITION_ADJUST,
-                            city_frame.origin.y +
-                                (city_frame.size.h - LAYOUT_GPS_ARROW_HEIGHT) / 2 + LAYOUT_GPS_ARROW_POSITION_ADJUST,
-                            LAYOUT_GPS_ARROW_WIDTH, LAYOUT_GPS_ARROW_HEIGHT));
-      layer_mark_dirty(data->gps_arrow_layer);
-    } else if (PBL_IF_ROUND_ELSE(true, false)) {
-      GRect city_frame = layer_get_frame(text_layer_get_layer(data->city_layer));
-      const int16_t current_margin = LAYOUT_BASE_MARGIN;
-      GRect restored_frame = GRect(current_margin + LAYOUT_ROUND_CITY_FRAME_ADJUST, city_frame.origin.y,
-                                   city_frame.size.w, city_frame.size.h);
-      layer_set_frame(text_layer_get_layer(data->city_layer), restored_frame);
-      text_layer_set_text_alignment(data->city_layer, GTextAlignmentCenter);
-      layer_mark_dirty(text_layer_get_layer(data->city_layer));
-    }
-  }
+  time_traveler_main_window_update_gps_arrow(data, data_point);
 }
 
 static Animation *create_anim_scroll_out(Layer *layer, uint32_t duration,
@@ -172,6 +125,17 @@ static Animation *animation_for_bounce(WorldClockData *data,
   return inbound;
 }
 
+static void prv_commit_scroll(WorldClockData *data, WorldClockDataPoint *target,
+                              int target_index, ScrollDirection direction) {
+  data->data_point = target;
+  time_traveler_main_window_update_night_mode(data);
+  time_traveler_main_window_start_dot_animation(data, target_index);
+  Animation *scroll_animation = animation_for_scroll(data, direction, target);
+  animation_unschedule(data->previous_animation);
+  animation_schedule(scroll_animation);
+  data->previous_animation = scroll_animation;
+}
+
 void time_traveler_scroll_ask(WorldClockData *data, ScrollDirection direction) {
   int delta = direction == ScrollDirectionUp ? -1 : +1;
   WorldClockDataPoint *next_data_point =
@@ -216,21 +180,10 @@ void time_traveler_scroll_up_long_click_handler(ClickRecognizerRef recognizer, v
   // Go to first city in list
   WorldClockDataPoint *first_data_point = time_traveler_data_point_at(0);
   if (first_data_point && data->data_point != first_data_point) {
-    if (data->gps_arrow_layer) {
-      layer_set_hidden(data->gps_arrow_layer, true);
-    }
-    
+    if (data->gps_arrow_layer) layer_set_hidden(data->gps_arrow_layer, true);
     int delta = time_traveler_index_of_data_point(data->data_point);
     ScrollDirection direction = (delta > 0) ? ScrollDirectionUp : ScrollDirectionDown;
-    
-    data->data_point = first_data_point;
-    time_traveler_main_window_update_night_mode(data);
-    time_traveler_main_window_start_dot_animation(data, 0);
-    
-    Animation *scroll_animation = animation_for_scroll(data, direction, first_data_point);
-    animation_unschedule(data->previous_animation);
-    animation_schedule(scroll_animation);
-    data->previous_animation = scroll_animation;
+    prv_commit_scroll(data, first_data_point, 0, direction);
   }
 }
 
@@ -240,53 +193,24 @@ void time_traveler_scroll_down_long_click_handler(ClickRecognizerRef recognizer,
   int last_index = time_traveler_num_data_points() - 1;
   WorldClockDataPoint *last_data_point = time_traveler_data_point_at(last_index);
   if (last_data_point && data->data_point != last_data_point) {
-    if (data->gps_arrow_layer) {
-      layer_set_hidden(data->gps_arrow_layer, true);
-    }
-    
+    if (data->gps_arrow_layer) layer_set_hidden(data->gps_arrow_layer, true);
     int delta = time_traveler_index_of_data_point(data->data_point);
     ScrollDirection direction = (delta < last_index) ? ScrollDirectionDown : ScrollDirectionUp;
-    
-    data->data_point = last_data_point;
-    time_traveler_main_window_update_night_mode(data);
-    time_traveler_main_window_start_dot_animation(data, last_index);
-    
-    Animation *scroll_animation = animation_for_scroll(data, direction, last_data_point);
-    animation_unschedule(data->previous_animation);
-    animation_schedule(scroll_animation);
-    data->previous_animation = scroll_animation;
+    prv_commit_scroll(data, last_data_point, last_index, direction);
   }
 }
 
 void time_traveler_scroll_select_click_handler(ClickRecognizerRef recognizer, void *context) {
   WorldClockData *data = context;
   // Go to user's current location (user city)
-  int user_idx = -1;
-  for (int i = 0; i < time_traveler_num_data_points(); i++) {
-    if (time_traveler_data_is_user_location(time_traveler_data_point_at(i))) {
-      user_idx = i;
-      break;
-    }
-  }
-
+  int user_idx = time_traveler_data_find_user_location_index();
   if (user_idx >= 0) {
     WorldClockDataPoint *user_city = time_traveler_data_point_at(user_idx);
     if (user_city && data->data_point != user_city) {
-      if (data->gps_arrow_layer) {
-        layer_set_hidden(data->gps_arrow_layer, true);
-      }
-      
+      if (data->gps_arrow_layer) layer_set_hidden(data->gps_arrow_layer, true);
       int current_index = time_traveler_index_of_data_point(data->data_point);
       ScrollDirection direction = (current_index < user_idx) ? ScrollDirectionDown : ScrollDirectionUp;
-      
-      data->data_point = user_city;
-      time_traveler_main_window_update_night_mode(data);
-      time_traveler_main_window_start_dot_animation(data, user_idx);
-      
-      Animation *scroll_animation = animation_for_scroll(data, direction, user_city);
-      animation_unschedule(data->previous_animation);
-      animation_schedule(scroll_animation);
-      data->previous_animation = scroll_animation;
+      prv_commit_scroll(data, user_city, user_idx, direction);
     }
   }
 }

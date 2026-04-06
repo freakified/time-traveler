@@ -2,7 +2,6 @@
 #include "time_traveler_main_window.h"
 #include "time_traveler_private.h"
 #include "time_traveler_data.h"
-#include "time_traveler_settings.h"
 #include "time_traveler_messaging.h"
 #include "time_traveler_overlay.h"
 #include <pebble.h>
@@ -16,55 +15,7 @@ static void set_data_point(WorldClockData *data, WorldClockDataPoint *dp) {
   if (!dp) return;
   data->data_point = dp;
   time_traveler_view_model_fill_all(&data->view_model, dp);
-
-  // Show/hide arrow (arrow only for virtual CURRENT LOCATION entry)
-  if (data->gps_arrow_layer) {
-    bool is_current_location = time_traveler_data_is_user_location(dp);
-    layer_set_hidden(data->gps_arrow_layer, !is_current_location);
-
-    if (is_current_location) {
-      GRect city_frame = layer_get_frame(text_layer_get_layer(data->city_layer));
-      GFont city_font = fonts_get_system_font(LAYOUT_FONT_CITY);
-      GSize text_size = graphics_text_layout_get_content_size(
-          data->view_model.city, city_font,
-          GRect(0, 0, city_frame.size.w, city_frame.size.h),
-          GTextOverflowModeTrailingEllipsis, GTextAlignmentLeft);
-
-      const int16_t spacing = LAYOUT_GPS_ARROW_TEXT_SPACING;
-      int16_t text_right_x;
-      if (PBL_IF_ROUND_ELSE(true, false)) {
-        int16_t text_left_x = city_frame.origin.x + (city_frame.size.w - text_size.w) / 2;
-        text_right_x = text_left_x + text_size.w;
-
-        int16_t half_total = (text_size.w + spacing + LAYOUT_GPS_ARROW_WIDTH) / 2;
-        int16_t center = city_frame.origin.x + city_frame.size.w / 2;
-        int16_t new_text_left = center - half_total;
-        GRect shifted_frame = city_frame;
-        shifted_frame.origin.x = new_text_left;
-        layer_set_frame(text_layer_get_layer(data->city_layer), shifted_frame);
-        text_layer_set_text_alignment(data->city_layer, GTextAlignmentLeft);
-        layer_mark_dirty(text_layer_get_layer(data->city_layer));
-
-        text_right_x = new_text_left + text_size.w;
-      } else {
-        text_right_x = city_frame.origin.x + text_size.w;
-      }
-      layer_set_frame(data->gps_arrow_layer,
-                      GRect(text_right_x + spacing + LAYOUT_GPS_ARROW_POSITION_ADJUST,
-                            city_frame.origin.y +
-                                (city_frame.size.h - LAYOUT_GPS_ARROW_HEIGHT) / 2 + LAYOUT_GPS_ARROW_POSITION_ADJUST,
-                            LAYOUT_GPS_ARROW_WIDTH, LAYOUT_GPS_ARROW_HEIGHT));
-      layer_mark_dirty(data->gps_arrow_layer);
-    } else if (PBL_IF_ROUND_ELSE(true, false)) {
-      GRect city_frame = layer_get_frame(text_layer_get_layer(data->city_layer));
-      const int16_t current_margin = LAYOUT_BASE_MARGIN;
-      GRect restored_frame = GRect(current_margin + LAYOUT_ROUND_CITY_FRAME_ADJUST, city_frame.origin.y,
-                                   city_frame.size.w, city_frame.size.h);
-      layer_set_frame(text_layer_get_layer(data->city_layer), restored_frame);
-      text_layer_set_text_alignment(data->city_layer, GTextAlignmentCenter);
-      layer_mark_dirty(text_layer_get_layer(data->city_layer));
-    }
-  }
+  time_traveler_main_window_update_gps_arrow(data, dp);
 }
 
 static void prv_city_data_received(const uint8_t *blob, uint16_t length,
@@ -97,13 +48,7 @@ static void prv_city_data_received(const uint8_t *blob, uint16_t length,
   if (data->data_point) {
     set_data_point(data, data->data_point);
   } else if (time_traveler_num_data_points() > 0) {
-    int user_idx = -1;
-    for (int i = 0; i < time_traveler_num_data_points(); i++) {
-      if (time_traveler_data_is_user_location(time_traveler_data_point_at(i))) {
-        user_idx = i;
-        break;
-      }
-    }
+    int user_idx = time_traveler_data_find_user_location_index();
     set_data_point(data, time_traveler_data_point_at(user_idx >= 0 ? user_idx : 0));
   }
 
@@ -134,7 +79,6 @@ static void prv_handle_minute_tick(struct tm *tick_time, TimeUnits units_changed
 }
 
 static void init() {
-  time_traveler_settings_init();
   WorldClockData *data = malloc(sizeof(WorldClockData));
   memset(data, 0, sizeof(WorldClockData));
 
@@ -148,8 +92,7 @@ static void init() {
 
   // Check for cached city data
   if (persist_exists(PERSIST_KEY_CITY_DATA_BLOB)) {
-    // Read up to current number of cities, or what's stored
-    static uint8_t blob[50 * 24]; // Max possible cities (50 × 24 bytes each); static to avoid stack overflow
+    static uint8_t blob[MAX_JS_CITIES * CITY_BLOB_BYTES_PER_CITY]; // static to avoid stack overflow
     int read = persist_read_data(PERSIST_KEY_CITY_DATA_BLOB, blob, sizeof(blob));
     if (read > 0) {
       time_traveler_data_apply_js_blob(blob, (uint16_t)read);
@@ -162,14 +105,7 @@ static void init() {
   }
 
   // Find "CURRENT LOCATION" index and always prefer it on startup
-  int user_idx = -1;
-  for (int i = 0; i < time_traveler_num_data_points(); i++) {
-    if (time_traveler_data_is_user_location(time_traveler_data_point_at(i))) {
-      user_idx = i;
-      break;
-    }
-  }
-
+  int user_idx = time_traveler_data_find_user_location_index();
   if (user_idx >= 0) {
     start_index = user_idx;
   }

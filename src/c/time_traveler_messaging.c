@@ -1,11 +1,9 @@
 #include "time_traveler_messaging.h"
 #include "time_traveler_overlay.h"
-#include "time_traveler_settings.h"
 #include "time_traveler_data.h"
 #include <string.h>
 
-// 50 cities × 24 bytes = 1200 bytes max
-#define CITY_DATA_BUF_SIZE 1200
+#define CITY_DATA_BUF_SIZE (MAX_JS_CITIES * CITY_BLOB_BYTES_PER_CITY)
 
 typedef struct {
   WorldClockMessageCityDataCallback on_city_data_received;

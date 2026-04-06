@@ -1,4 +1,4 @@
-var timezone = require('./timezone');
+var timezone = require('./cities');
 var FULL_NIGHT_SENTINEL = require('./constants').FULL_NIGHT_SENTINEL;
 
 var lastSentCityData = null;
