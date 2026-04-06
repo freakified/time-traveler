@@ -1,7 +1,8 @@
 import { defineConfig } from 'vite';
 
 export default defineConfig({
-  root: './time-traveler',
+  root: '.',
+  base: '/time-traveler/',
   build: {
     outDir: 'dist'
   },
