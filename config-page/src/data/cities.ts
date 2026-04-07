@@ -5,6 +5,13 @@ export interface City {
   offset: number; // Standard offset in minutes
 }
 
+export interface CustomCity {
+  displayName: string; // What appears on the watch (max 15 chars)
+  lat: number;
+  lon: number;
+  tzCityName: string; // References CITIES[].name for DST/offset rules
+}
+
 export const CITIES: City[] = [
   { name: "PAGO PAGO", displayName: "Pago Pago", timezone: "America/Pacific", offset: -660 },
   { name: "HONOLULU", displayName: "Honolulu", timezone: "America/Pacific", offset: -600 },

@@ -179,20 +179,20 @@ export const ColorPicker: React.FC<ColorPickerProps> = ({
       <ModalOverlay
         isOpen={isOpen}
         onOpenChange={setIsOpen}
-        className="halite-color-modal-overlay"
+        className="halite-modal-overlay"
         isDismissable
       >
-        <Modal className="halite-color-modal">
-          <Dialog className="halite-color-dialog">
+        <Modal className="halite-modal">
+          <Dialog className="halite-dialog">
             {({ close }) => (
               <>
-                <div className="halite-color-modal-header">
+                <div className="halite-modal-header">
                   <Heading slot="title">{label}</Heading>
-                  <Button className="halite-color-modal-close" onPress={close}>
+                  <Button className="halite-modal-close" onPress={close}>
                     ×
                   </Button>
                 </div>
-                <div className="halite-color-modal-grid">
+                <div className="halite-modal-grid">
                   {colorGrid.map((color, index) => {
                     if (color === null) {
                       return <div key={`blank-${index}`} className="halite-color-swatch-blank" />;

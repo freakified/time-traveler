@@ -221,7 +221,7 @@ button {
 }
 
 /* Modal styles */
-.halite-color-modal-overlay {
+.halite-modal-overlay {
   position: fixed;
   inset: 0;
   background: var(--modal-overlay);
@@ -232,23 +232,23 @@ button {
   backdrop-filter: blur(3px);
 }
 
-.halite-color-modal-overlay[data-entering] {
+.halite-modal-overlay[data-entering] {
   animation: modal-overlay-fade 200ms ease-out;
 }
 
-.halite-color-modal[data-entering] {
+.halite-modal[data-entering] {
   animation: modal-dialog-fade 200ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-.halite-color-modal-overlay[data-exiting] {
+.halite-modal-overlay[data-exiting] {
   animation: modal-overlay-fade 150ms ease-in reverse;
 }
 
-.halite-color-modal[data-exiting] {
+.halite-modal[data-exiting] {
   animation: modal-dialog-fade 150ms cubic-bezier(0.4, 0, 1, 1) reverse;
 }
 
-.halite-color-modal {
+.halite-modal {
   width: 90%;
   max-width: 400px;
   max-height: 90vh;
@@ -261,12 +261,17 @@ button {
   box-shadow: var(--shadow-lg);
 }
 
-.halite-color-dialog {
+.halite-dialog {
   outline: none;
   display: flex;
   flex-direction: column;
   height: 100%;
   overflow: auto;
+}
+
+.halite-modal .halite-input,
+.halite-modal select {
+  background-color: var(--bg-surface-colormodal);
 }
 
 @keyframes modal-overlay-fade {
@@ -291,7 +296,7 @@ button {
   }
 }
 
-.halite-color-modal-header {
+.halite-modal-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -300,13 +305,13 @@ button {
   padding-left: 20px;
 }
 
-.halite-color-modal-header h2[slot='title'] {
+.halite-modal-header h2[slot='title'] {
   margin: 0;
   font-size: 1.1rem;
   font-weight: 600;
 }
 
-.halite-color-modal-close {
+.halite-modal-close {
   background: none;
   border: none;
   font-size: 32px;
@@ -317,7 +322,7 @@ button {
   height: 54px;
 }
 
-.halite-color-modal-grid {
+.halite-modal-grid {
   flex: 1;
   display: grid;
   grid-template-columns: repeat(6, 1fr);
@@ -799,6 +804,190 @@ input[type='checkbox'] {
 .halite-custom-action-btn--danger:hover {
   background-color: rgba(231, 76, 60, 0.08);
   border-color: rgba(231, 76, 60, 0.5);
+}
+
+/* Custom city delete button */
+.city-delete-btn {
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--text-subtle);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  flex-shrink: 0;
+  transition: color 0.2s ease;
+}
+
+.city-delete-btn:hover {
+  color: #e74c3c;
+}
+
+/* Add custom city button row */
+.city-item-add {
+  display: flex;
+  align-items: center;
+}
+
+.city-add-custom-btn {
+  background: none;
+  border: none;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--halite-orange);
+  font-size: 0.95rem;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  width: 100%;
+  transition: opacity 0.2s ease;
+}
+
+.city-add-custom-btn:active {
+  opacity: 0.7;
+}
+
+/* Add City Modal */
+.halite-add-city-modal {
+  max-width: 420px;
+}
+
+.halite-add-city-content {
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  overflow-y: auto;
+}
+
+.halite-add-city-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.halite-add-city-label-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+
+.halite-add-city-label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.halite-add-city-counter {
+  font-size: 0.8rem;
+  color: var(--text-subtle);
+}
+
+.halite-add-city-combobox {
+  position: relative;
+  width: 100%;
+}
+
+.halite-add-city-search-field {
+  display: block;
+  width: 100%;
+}
+
+.halite-add-city-combobox .halite-input {
+  width: 100%;
+}
+
+.halite-combobox-popover {
+  display: none;
+}
+
+.halite-combobox-popover[data-open] {
+  display: block;
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: var(--bg-surface-elevated);
+  border: 1px solid var(--border-strong);
+  border-radius: 10px;
+  box-shadow: var(--shadow-md);
+  overflow: hidden;
+  margin-top: 4px;
+  z-index: 100;
+}
+
+.halite-combobox-listbox {
+  list-style: none;
+  margin: 0;
+  padding: 4px;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.halite-combobox-item {
+  padding: 8px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.halite-combobox-item:hover {
+  background: var(--bg-surface-hover);
+}
+
+.halite-combobox-item[data-focused] {
+  background: var(--bg-surface-hover);
+  outline: none;
+  box-shadow: inset 0 0 0 2px var(--halite-orange);
+}
+
+.halite-combobox-item-status {
+  color: var(--text-subtle);
+  cursor: default;
+}
+
+.halite-add-city-location-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: none;
+  border: 1px solid var(--border-strong);
+  border-radius: 10px;
+  padding: 8px 14px;
+  color: var(--text-main);
+  font-size: 14px;
+  font-weight: 500;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  align-self: flex-start;
+}
+
+.halite-add-city-location-btn:hover:not([disabled]) {
+  background-color: var(--bg-surface-hover);
+}
+
+.halite-add-city-location-btn[disabled] {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.halite-add-city-geo-result {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.halite-add-city-geo-ok {
+  color: #2ecc71;
+}
+
+.halite-add-city-add-btn {
+  align-self: flex-end;
 }
 
 /* Import Modal */

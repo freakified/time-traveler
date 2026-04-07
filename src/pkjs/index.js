@@ -1,7 +1,7 @@
 var cityData = require('./city-data');
 var timezone = require('./cities');
 
-var USE_LOCAL_CONFIG = false;
+var USE_LOCAL_CONFIG = true;
 var configDataUri = 'https://freakified.github.io/time-traveler/';
 var configLocalUri = 'http://10.25.219.24:3000/index.html';
 

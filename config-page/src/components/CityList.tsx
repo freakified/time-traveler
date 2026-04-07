@@ -28,8 +28,9 @@ export const CityList: React.FC<{
   actionLabel?: string;
   onAction?: () => void;
   children?: React.ReactNode;
+  footer?: React.ReactNode;
   emptyStateMessage?: string;
-}> = ({ title, cities, pinnedCities, onToggle, actionLabel, onAction, children, emptyStateMessage }) => {
+}> = ({ title, cities, pinnedCities, onToggle, actionLabel, onAction, children, footer, emptyStateMessage }) => {
   return (
     <div className="city-list-section">
       {(title || (actionLabel && onAction)) && (
@@ -71,6 +72,7 @@ export const CityList: React.FC<{
             </div>
           );
         })}
+        {footer}
       </div>
     </div>
   );

@@ -5,3 +5,6 @@ export * from './Toggle';
 export * from './ColorPicker';
 export * from './Select';
 export * from './CityList';
+export * from './AddCityModal';
+export * from './CustomCitiesSection';
+export * from './icons';
