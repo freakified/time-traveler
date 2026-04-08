@@ -22,20 +22,27 @@ const PinIcon = ({ filled }: { filled: boolean }) => (
 
 export const CityList: React.FC<{
   title?: string;
+  titleCount?: string;
   cities: City[];
   pinnedCities: string[];
   onToggle: (cityName: string) => void;
+  disablePinning?: boolean;
   actionLabel?: string;
   onAction?: () => void;
   children?: React.ReactNode;
   footer?: React.ReactNode;
   emptyStateMessage?: string;
-}> = ({ title, cities, pinnedCities, onToggle, actionLabel, onAction, children, footer, emptyStateMessage }) => {
+}> = ({ title, titleCount, cities, pinnedCities, onToggle, disablePinning, actionLabel, onAction, children, footer, emptyStateMessage }) => {
   return (
     <div className="city-list-section">
       {(title || (actionLabel && onAction)) && (
         <div className="city-list-header">
-          {title && <h3>{title}</h3>}
+          {title && (
+            <h3>
+              {title}
+              {titleCount && <span className="city-list-count">{titleCount}</span>}
+            </h3>
+          )}
           {actionLabel && onAction && (
             <button className="halite-text-button" onClick={onAction}>
               {actionLabel}
@@ -57,6 +64,7 @@ export const CityList: React.FC<{
               <Switch
                 isSelected={isPinned}
                 onChange={() => onToggle(city.name)}
+                isDisabled={disablePinning && !isPinned}
                 className="city-toggle"
               >
                 <div className="city-toggle-content">

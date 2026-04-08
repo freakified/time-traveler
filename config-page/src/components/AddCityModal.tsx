@@ -19,6 +19,15 @@ import { GeolocateIcon } from './icons';
 
 const MAX_NAME_LENGTH = 15;
 
+const guessTzCityFromLon = (lon: number): string => {
+  const estimatedOffsetMinutes = Math.round(lon / 15) * 60;
+  return CITIES.reduce((best, city) =>
+    Math.abs(city.offset - estimatedOffsetMinutes) < Math.abs(best.offset - estimatedOffsetMinutes)
+      ? city
+      : best
+  ).name;
+};
+
 interface NominatimAddress {
   city?: string;
   town?: string;
@@ -44,7 +53,7 @@ export const AddCityModal: React.FC<AddCityModalProps> = ({ isOpen, onOpenChange
   const [cityName, setCityName] = React.useState('');
   const [lat, setLat] = React.useState<number | null>(null);
   const [lon, setLon] = React.useState<number | null>(null);
-  const [tzCityName, setTzCityName] = React.useState('LONDON');
+  const [tzCityName, setTzCityName] = React.useState('UTC');
   const [geoLoading, setGeoLoading] = React.useState(false);
   const [geoLabel, setGeoLabel] = React.useState<string | null>(null);
   const [geoError, setGeoError] = React.useState(false);
@@ -77,7 +86,7 @@ export const AddCityModal: React.FC<AddCityModalProps> = ({ isOpen, onOpenChange
     setCityName('');
     setLat(null);
     setLon(null);
-    setTzCityName('LONDON');
+    setTzCityName('UTC');
     setGeoLoading(false);
     setGeoLabel(null);
     setGeoError(false);
@@ -88,8 +97,11 @@ export const AddCityModal: React.FC<AddCityModalProps> = ({ isOpen, onOpenChange
     const result = list.items.find(s => String(s.place_id) === String(key));
     if (!result) return;
 
-    setLat(parseFloat(result.lat));
-    setLon(parseFloat(result.lon));
+    const parsedLat = parseFloat(result.lat);
+    const parsedLon = parseFloat(result.lon);
+    setLat(parsedLat);
+    setLon(parsedLon);
+    setTzCityName(guessTzCityFromLon(parsedLon));
 
     const addr = result.address;
     const shortName = (
@@ -111,6 +123,7 @@ export const AddCityModal: React.FC<AddCityModalProps> = ({ isOpen, onOpenChange
       (pos) => {
         setLat(pos.coords.latitude);
         setLon(pos.coords.longitude);
+        setTzCityName(guessTzCityFromLon(pos.coords.longitude));
         setGeoLabel('Current location');
         setGeoLoading(false);
       },
@@ -231,7 +244,6 @@ export const AddCityModal: React.FC<AddCityModalProps> = ({ isOpen, onOpenChange
                     id="add-city-name"
                     className="halite-input"
                     type="text"
-                    placeholder="e.g. Portland"
                     maxLength={MAX_NAME_LENGTH}
                     value={cityName}
                     onChange={(e) => setCityName(e.target.value)}

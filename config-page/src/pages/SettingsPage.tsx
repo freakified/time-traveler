@@ -3,8 +3,9 @@ import { useConfig } from '../context/PebbleConfigContext';
 import { Page, Section, CityList, FormItemLabel, CustomCitiesSection } from '../components';
 import { CITIES } from '../data/cities';
 import type { CustomCity } from '../data/cities';
-import { formatOffset } from '../utils/string';
 import { LocationArrowIcon } from '../components/icons';
+
+const MAX_CITIES = 50;
 
 export const SettingsPage: React.FC = () => {
   const { settings, updateSetting } = useConfig();
@@ -26,7 +27,9 @@ export const SettingsPage: React.FC = () => {
   }, [settings.SETTING_CUSTOM_CITIES]);
 
   const handleToggleCity = (cityName: string) => {
-    const newPinnedCities = pinnedCities.includes(cityName)
+    const isCurrentlyPinned = pinnedCities.includes(cityName);
+    if (!isCurrentlyPinned && 1 + pinnedCities.length + customCities.length >= MAX_CITIES) return;
+    const newPinnedCities = isCurrentlyPinned
       ? pinnedCities.filter((name: string) => name !== cityName)
       : [...pinnedCities, cityName];
     updateSetting('SETTING_PINNED_CITIES', JSON.stringify(newPinnedCities));
@@ -41,12 +44,18 @@ export const SettingsPage: React.FC = () => {
   };
 
   const handleAddCustomCity = (city: CustomCity) => {
+    if (1 + pinnedCities.length + customCities.length >= MAX_CITIES) return;
     updateSetting('SETTING_CUSTOM_CITIES', JSON.stringify([...customCities, city]));
   };
 
   const handleDeleteCustomCity = (index: number) => {
     updateSetting('SETTING_CUSTOM_CITIES', JSON.stringify(customCities.filter((_, i) => i !== index)));
   };
+
+  // Current location always occupies one slot
+  const totalCities = 1 + pinnedCities.length + customCities.length;
+  const atLimit = totalCities >= MAX_CITIES;
+  const remainingSlots = MAX_CITIES - totalCities;
 
   const pinnedCityList = CITIES.filter(city => pinnedCities.includes(city.name));
   const unpinnedCityList = CITIES.filter(city => !pinnedCities.includes(city.name));
@@ -56,6 +65,7 @@ export const SettingsPage: React.FC = () => {
       <Section>
         <CityList
           title="Your Cities"
+          titleCount={`${totalCities}/${MAX_CITIES}`}
           cities={pinnedCityList}
           pinnedCities={pinnedCities}
           onToggle={handleToggleCity}
@@ -66,6 +76,7 @@ export const SettingsPage: React.FC = () => {
               customCities={customCities}
               onAdd={handleAddCustomCity}
               onDelete={handleDeleteCustomCity}
+              disableAdd={atLimit}
             />
           }
         >
@@ -86,8 +97,9 @@ export const SettingsPage: React.FC = () => {
           cities={unpinnedCityList}
           pinnedCities={pinnedCities}
           onToggle={handleToggleCity}
+          disablePinning={atLimit}
           actionLabel="Pin All"
-          onAction={unpinnedCityList.length > 0 ? handlePinAll : undefined}
+          onAction={unpinnedCityList.length > 0 && unpinnedCityList.length <= remainingSlots ? handlePinAll : undefined}
           emptyStateMessage="All available cities pinned; the true Casio™ World Time experience!"
         />
       </Section>

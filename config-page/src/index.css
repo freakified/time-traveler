@@ -704,6 +704,15 @@ input[type='checkbox'] {
   font-weight: 600;
   color: var(--text-main);
   margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.city-list-count {
+  font-size: 0.75rem;
+  font-weight: 400;
+  color: var(--text-secondary);
 }
 
 .halite-text-button {
@@ -827,13 +836,15 @@ input[type='checkbox'] {
 /* Add custom city button row */
 .city-item-add {
   display: flex;
-  align-items: center;
+  flex-direction: column;
+  align-items: stretch;
+  padding: 0;
 }
 
 .city-add-custom-btn {
   background: none;
   border: none;
-  padding: 0;
+  padding: 0.75rem 1rem;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -848,6 +859,17 @@ input[type='checkbox'] {
 
 .city-add-custom-btn:active {
   opacity: 0.7;
+}
+
+.city-add-custom-btn[data-disabled] {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.city-add-limit-note {
+  padding: 0 1rem 0.75rem;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
 }
 
 /* Add City Modal */

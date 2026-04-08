@@ -11,12 +11,14 @@ interface CustomCitiesSectionProps {
   customCities: CustomCity[];
   onAdd: (city: CustomCity) => void;
   onDelete: (index: number) => void;
+  disableAdd?: boolean;
 }
 
 export const CustomCitiesSection: React.FC<CustomCitiesSectionProps> = ({
   customCities,
   onAdd,
   onDelete,
+  disableAdd,
 }) => {
   const [addModalOpen, setAddModalOpen] = React.useState(false);
 
@@ -43,10 +45,19 @@ export const CustomCitiesSection: React.FC<CustomCitiesSectionProps> = ({
         );
       })}
       <div className="city-item city-item-add">
-        <Button className="city-add-custom-btn" onPress={() => setAddModalOpen(true)}>
+        <Button
+          className="city-add-custom-btn"
+          isDisabled={disableAdd}
+          onPress={() => setAddModalOpen(true)}
+        >
           <PlusIcon />
           Add custom city
         </Button>
+        {disableAdd && (
+          <p className="city-add-limit-note">
+            Already at limit; unpin some cities to add a custom one.
+          </p>
+        )}
       </div>
       <AddCityModal
         isOpen={addModalOpen}

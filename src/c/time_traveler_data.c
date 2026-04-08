@@ -365,5 +365,6 @@ WorldClockDataPoint *time_traveler_data_point_delta(WorldClockDataPoint *dp,
   if (idx < 0) {
     return NULL;
   }
-  return time_traveler_data_point_at(idx + delta);
+  int num = time_traveler_num_data_points();
+  return time_traveler_data_point_at((idx + delta + num) % num);
 }
