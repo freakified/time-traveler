@@ -38,7 +38,7 @@ export const CustomCitiesSection: React.FC<CustomCitiesSectionProps> = ({
               </Button>
               <FormItemLabel
                 label={city.displayName}
-                description={refCity ? formatOffset(refCity.offset) : ''}
+                description={refCity ? `Custom city · ${formatOffset(refCity.offset)}` : 'Custom city'}
               />
             </div>
           </div>
@@ -51,13 +51,15 @@ export const CustomCitiesSection: React.FC<CustomCitiesSectionProps> = ({
           onPress={() => setAddModalOpen(true)}
         >
           <PlusIcon />
-          Add custom city
+          <span>
+            Add custom city
+            {disableAdd && (
+              <span className="city-add-limit-note">
+                Already at limit; unpin some cities to add a custom one.
+              </span>
+            )}
+          </span>
         </Button>
-        {disableAdd && (
-          <p className="city-add-limit-note">
-            Already at limit; unpin some cities to add a custom one.
-          </p>
-        )}
       </div>
       <AddCityModal
         isOpen={addModalOpen}

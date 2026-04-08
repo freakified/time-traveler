@@ -71,64 +71,55 @@ function pushInt16BE(blob, value) {
 function computeCityDataBlob(now) {
   var CITIES = timezone.CITIES;
   var pinnedNames = getPinnedCities();
-  var blob = [];
+  var customCities = getCustomCities();
+
+  // Build a flat list of entries (standard + custom), then sort west→east by lon
+  var entries = [];
 
   for (var i = 0; i < CITIES.length; i++) {
     var city = CITIES[i];
     if (!pinnedNames.includes(city.name)) continue;
-
-    // Name: 16 bytes, null-padded
-    var name = city.name.substring(0, 15);
-    for (var c = 0; c < 16; c++) {
-      blob.push(c < name.length ? name.charCodeAt(c) : 0);
-    }
-
-    // lat × 100, lon × 100 as int16 big-endian
-    pushInt16BE(blob, Math.round(city.lat * 100));
-    pushInt16BE(blob, Math.round(city.lon * 100));
-
-    // offset_minutes as int16 big-endian
-    var offset = timezone.cityOffsetMinutes(city, now);
-    pushInt16BE(blob, offset);
-
-    // day_label and is_night
-    var label = timezone.dayLabelForCity(city, now);
-    blob.push(label < 0 ? FULL_NIGHT_SENTINEL : label);
-    blob.push(0); // is_night
+    entries.push({ type: 'standard', city: city, lon: city.lon });
   }
-  // Append custom cities after pinned cities
-  var customCities = getCustomCities();
+
   for (var j = 0; j < customCities.length; j++) {
     var cc = customCities[j];
-
-    // Find the reference city for DST/offset rules
     var refCity = null;
     for (var k = 0; k < CITIES.length; k++) {
-      if (CITIES[k].name === cc.tzCityName) {
-        refCity = CITIES[k];
-        break;
-      }
+      if (CITIES[k].name === cc.tzCityName) { refCity = CITIES[k]; break; }
     }
     if (!refCity) continue;
+    entries.push({ type: 'custom', cc: cc, refCity: refCity, lon: cc.lon });
+  }
 
-    // Name: 16 bytes, null-padded, uppercase (watch displays uppercase)
-    var ccName = cc.displayName.toUpperCase().substring(0, 15);
-    for (var nc = 0; nc < 16; nc++) {
-      blob.push(nc < ccName.length ? ccName.charCodeAt(nc) : 0);
+  entries.sort(function (a, b) { return a.lon - b.lon; });
+
+  var blob = [];
+  for (var e = 0; e < entries.length; e++) {
+    var entry = entries[e];
+
+    if (entry.type === 'standard') {
+      var sc = entry.city;
+      var name = sc.name.substring(0, 15);
+      for (var n = 0; n < 16; n++) blob.push(n < name.length ? name.charCodeAt(n) : 0);
+      pushInt16BE(blob, Math.round(sc.lat * 100));
+      pushInt16BE(blob, Math.round(sc.lon * 100));
+      pushInt16BE(blob, timezone.cityOffsetMinutes(sc, now));
+      var label = timezone.dayLabelForCity(sc, now);
+      blob.push(label < 0 ? FULL_NIGHT_SENTINEL : label);
+      blob.push(0); // is_night
+    } else {
+      var cu = entry.cc;
+      var rf = entry.refCity;
+      var ccName = cu.displayName.toUpperCase().substring(0, 15);
+      for (var cn = 0; cn < 16; cn++) blob.push(cn < ccName.length ? ccName.charCodeAt(cn) : 0);
+      pushInt16BE(blob, Math.round(cu.lat * 100));
+      pushInt16BE(blob, Math.round(cu.lon * 100));
+      pushInt16BE(blob, timezone.cityOffsetMinutes(rf, now));
+      var ccLabel = timezone.dayLabelForCity(rf, now);
+      blob.push(ccLabel < 0 ? FULL_NIGHT_SENTINEL : ccLabel);
+      blob.push(0); // is_night
     }
-
-    // lat × 100, lon × 100 as int16 big-endian
-    pushInt16BE(blob, Math.round(cc.lat * 100));
-    pushInt16BE(blob, Math.round(cc.lon * 100));
-
-    // offset using the reference city's DST rules
-    var ccOffset = timezone.cityOffsetMinutes(refCity, now);
-    pushInt16BE(blob, ccOffset);
-
-    // day label using the reference city's offset
-    var ccLabel = timezone.dayLabelForCity(refCity, now);
-    blob.push(ccLabel < 0 ? FULL_NIGHT_SENTINEL : ccLabel);
-    blob.push(0); // is_night
   }
 
   return blob;

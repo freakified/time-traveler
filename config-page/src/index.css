@@ -13,7 +13,7 @@
   --bg-surface-colormodal: #fff;
   --text-main: #000;
   --text-muted: #6c757d;
-  --text-subtle: #adb5bd;
+  --text-subtle: #666;
   --border-color: #e9ecef;
   --border-strong: #dee2e6;
   --border-focus: rgba(255, 71, 0, 0.2);
@@ -717,16 +717,13 @@ input[type='checkbox'] {
 
 .halite-text-button {
   background: none;
-  border: 1px solid var(--border-strong);
+  border: 0 none;
   color: var(--halite-orange);
   font-weight: 700;
-  font-size: 12px;
-  border-radius: 8px;
-  padding: 10px 16px;
+  font-size: 14px;
+  padding: 8px;
   cursor: pointer;
-  text-transform: uppercase;
   letter-spacing: 0.05em;
-  transition: opacity 0.2s ease;
 }
 
 .halite-text-button:active {
@@ -844,17 +841,25 @@ input[type='checkbox'] {
 .city-add-custom-btn {
   background: none;
   border: none;
-  padding: 0.75rem 1rem;
+  padding: 20px 18px;
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 19px;
   color: var(--halite-orange);
   font-size: 0.95rem;
   font-weight: 600;
-  font-family: inherit;
-  cursor: pointer;
-  width: 100%;
-  transition: opacity 0.2s ease;
+}
+
+.city-add-custom-btn>span {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+}
+
+.city-add-limit-note {
+  font-size: 0.8rem;
+  font-weight: normal;
 }
 
 .city-add-custom-btn:active {
@@ -862,15 +867,10 @@ input[type='checkbox'] {
 }
 
 .city-add-custom-btn[data-disabled] {
-  opacity: 0.4;
+  color: var(--text-subtle);
   cursor: default;
 }
 
-.city-add-limit-note {
-  padding: 0 1rem 0.75rem;
-  font-size: 0.8rem;
-  color: var(--text-secondary);
-}
 
 /* Add City Modal */
 .halite-add-city-modal {
@@ -898,11 +898,8 @@ input[type='checkbox'] {
 }
 
 .halite-add-city-label {
-  font-size: 0.85rem;
   font-weight: 600;
-  color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
+  padding-block-end: 2px;
 }
 
 .halite-add-city-counter {
@@ -970,6 +967,13 @@ input[type='checkbox'] {
 .halite-combobox-item-status {
   color: var(--text-subtle);
   cursor: default;
+  padding: 12px 8px;
+  display: block;
+  font-size: 14px;
+}
+
+.halite-add-city-divider {
+  color: var(--text-subtle);
 }
 
 .halite-add-city-location-btn {
@@ -979,7 +983,7 @@ input[type='checkbox'] {
   background: none;
   border: 1px solid var(--border-strong);
   border-radius: 10px;
-  padding: 8px 14px;
+  padding: 10px 14px;
   color: var(--text-main);
   font-size: 14px;
   font-weight: 500;
@@ -1010,6 +1014,50 @@ input[type='checkbox'] {
 
 .halite-add-city-add-btn {
   align-self: flex-end;
+}
+
+/* Confirmed-location display (replaces search box after geo success) */
+.halite-add-city-confirmed {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding-inline-start: 14px;
+  border: 1.5px solid var(--border-strong);
+  border-radius: 10px;
+  background-color: var(--bg-surface-elevated);
+  color: var(--text-main);
+  font-size: 16px;
+  box-shadow: var(--shadow-sm);
+  box-sizing: border-box;
+}
+
+.halite-add-city-confirmed svg {
+  flex-shrink: 0;
+  color: var(--halite-orange);
+}
+
+.halite-add-city-confirmed>span {
+  flex: 1;
+  font-weight: 500;
+}
+
+.halite-add-city-confirmed-clear {
+  background: none;
+  border: none;
+  padding: 9px 16px;
+  margin-left: auto;
+  color: var(--text-subtle);
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  transition: color 0.15s ease;
+}
+
+.halite-add-city-confirmed-clear:hover {
+  color: var(--text-main);
 }
 
 /* Import Modal */

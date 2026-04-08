@@ -55,8 +55,9 @@ export const AddCityModal: React.FC<AddCityModalProps> = ({ isOpen, onOpenChange
   const [lon, setLon] = React.useState<number | null>(null);
   const [tzCityName, setTzCityName] = React.useState('UTC');
   const [geoLoading, setGeoLoading] = React.useState(false);
-  const [geoLabel, setGeoLabel] = React.useState<string | null>(null);
   const [geoError, setGeoError] = React.useState(false);
+  // 'none' | 'geo' | 'search' — tracks how the location was set
+  const [locationSource, setLocationSource] = React.useState<'none' | 'geo' | 'search'>('none');
   // Prevents a spurious load when we programmatically set filterText after selection
   const justSelectedRef = React.useRef(false);
 
@@ -88,8 +89,19 @@ export const AddCityModal: React.FC<AddCityModalProps> = ({ isOpen, onOpenChange
     setLon(null);
     setTzCityName('UTC');
     setGeoLoading(false);
-    setGeoLabel(null);
     setGeoError(false);
+    setLocationSource('none');
+    list.setFilterText('');
+  };
+
+  const resetLocation = () => {
+    setLat(null);
+    setLon(null);
+    setTzCityName('UTC');
+    setGeoLoading(false);
+    setGeoError(false);
+    setLocationSource('none');
+    justSelectedRef.current = false;
     list.setFilterText('');
   };
 
@@ -113,18 +125,18 @@ export const AddCityModal: React.FC<AddCityModalProps> = ({ isOpen, onOpenChange
     justSelectedRef.current = true;
     const parts = result.display_name.split(',').map(s => s.trim());
     list.setFilterText(parts.slice(0, 2).join(', '));
+    setLocationSource('search');
   };
 
   const handleUseLocation = () => {
     setGeoLoading(true);
-    setGeoLabel(null);
     setGeoError(false);
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         setLat(pos.coords.latitude);
         setLon(pos.coords.longitude);
         setTzCityName(guessTzCityFromLon(pos.coords.longitude));
-        setGeoLabel('Current location');
+        setLocationSource('geo');
         setGeoLoading(false);
       },
       () => {
@@ -154,7 +166,6 @@ export const AddCityModal: React.FC<AddCityModalProps> = ({ isOpen, onOpenChange
         onOpenChange(open);
       }}
       className="halite-modal-overlay"
-      isDismissable
     >
       <Modal className="halite-modal halite-add-city-modal">
         <Dialog className="halite-dialog">
@@ -173,57 +184,87 @@ export const AddCityModal: React.FC<AddCityModalProps> = ({ isOpen, onOpenChange
               <div className="halite-add-city-content">
                 <div className="halite-add-city-field">
                   <label className="halite-add-city-label">Location</label>
-                  <div className="halite-add-city-combobox">
-                    <Autocomplete inputValue={list.filterText} onInputChange={list.setFilterText}>
-                      <SearchField
-                        aria-label="Search for a location"
-                        className="halite-add-city-search-field"
-                      >
-                        <Input
-                          className="halite-input"
-                          placeholder="Search for a city…"
-                          autoComplete="off"
-                        />
-                      </SearchField>
-                      <ListBox
-                        items={list.items}
-                        aria-label="Location suggestions"
-                        onAction={handleSelect}
-                        data-open={showSuggestions || undefined}
-                        className="halite-combobox-popover halite-combobox-listbox"
-                        renderEmptyState={() => list.isLoading
-                          ? <span className="halite-combobox-item halite-combobox-item-status">Searching…</span>
-                          : null
-                        }
-                      >
-                        {(item) => (
-                          <ListBoxItem
-                            id={String(item.place_id)}
-                            textValue={item.display_name}
-                            className="halite-combobox-item"
-                          >
-                            {item.display_name}
-                          </ListBoxItem>
-                        )}
-                      </ListBox>
-                    </Autocomplete>
-                  </div>
-                  {navigator.geolocation && (
-                    <Button
-                      className="halite-add-city-location-btn"
-                      isDisabled={geoLoading}
-                      onPress={handleUseLocation}
-                    >
+
+                  {locationSource === 'geo' ? (
+                    /* Geo confirmed — show a pill that looks like the input */
+                    <div className="halite-add-city-confirmed">
                       <GeolocateIcon />
-                      Use my location
-                    </Button>
+                      <span>Current location</span>
+                      <button
+                        className="halite-add-city-confirmed-clear"
+                        aria-label="Clear location"
+                        onClick={resetLocation}
+                      >
+                        ×
+                      </button>
+                    </div>
+                  ) : locationSource === 'search' ? (
+                    /* Search confirmed — show a pill with the selected place name */
+                    <div className="halite-add-city-confirmed">
+                      <span>{list.filterText}</span>
+                      <button
+                        className="halite-add-city-confirmed-clear"
+                        aria-label="Clear location"
+                        onClick={resetLocation}
+                      >
+                        ×
+                      </button>
+                    </div>
+                  ) : (
+                    /* Search box */
+                    <div className="halite-add-city-combobox">
+                      <Autocomplete inputValue={list.filterText} onInputChange={list.setFilterText}>
+                        <SearchField
+                          aria-label="Search for a location"
+                          className="halite-add-city-search-field"
+                        >
+                          <Input
+                            className="halite-input"
+                            placeholder="Search for a city…"
+                            autoComplete="off"
+                          />
+                        </SearchField>
+                        <ListBox
+                          items={list.items}
+                          aria-label="Location suggestions"
+                          onAction={handleSelect}
+                          data-open={showSuggestions || undefined}
+                          className="halite-combobox-popover halite-combobox-listbox"
+                          renderEmptyState={() => list.isLoading
+                            ? <span className="halite-combobox-item halite-combobox-item-status">Searching…</span>
+                            : null
+                          }
+                        >
+                          {(item) => (
+                            <ListBoxItem
+                              id={String(item.place_id)}
+                              textValue={item.display_name}
+                              className="halite-combobox-item"
+                            >
+                              {item.display_name}
+                            </ListBoxItem>
+                          )}
+                        </ListBox>
+                      </Autocomplete>
+                    </div>
                   )}
-                  {geoLoading && (
-                    <p className="halite-add-city-geo-result halite-description">Locating…</p>
+
+                  {/* Use my location button — hidden once any location is set */}
+                  {locationSource === 'none' && navigator.geolocation && (
+                    <>
+                      <div className="halite-add-city-divider">or</div>
+                      <Button
+                        className="halite-add-city-location-btn"
+                        isDisabled={geoLoading}
+                        onPress={handleUseLocation}
+                      >
+                        <GeolocateIcon />
+                        {geoLoading ? 'Locating…' : 'Use my location'}
+                      </Button>
+                    </>
+
                   )}
-                  {geoLabel && !geoLoading && (
-                    <p className="halite-add-city-geo-result halite-add-city-geo-ok">✓ {geoLabel}</p>
-                  )}
+
                   {geoError && (
                     <p className="halite-add-city-geo-result halite-import-error">
                       Could not get location. Please try again.
