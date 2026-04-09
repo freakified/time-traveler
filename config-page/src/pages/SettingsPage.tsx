@@ -1,5 +1,5 @@
 import React from 'react';
-import { Page, Section, CityList, FormItemLabel, CustomCitiesSection } from '../components';
+import { Page, Section, Select, CityList, FormItemLabel, CustomCitiesSection } from '../components';
 import { LocationArrowIcon } from '../components/icons';
 import { useCitySettings } from '../hooks/useCitySettings';
 
@@ -22,7 +22,20 @@ export const SettingsPage: React.FC = () => {
 
   return (
     <Page title="Time Traveler Settings">
-      <Section>
+      <Section title="General">
+        <Select
+          label="Date format"
+          description="Displayed when viewing the current location"
+          messageKey="SETTING_DATE_FORMAT"
+          options={[
+            { label: 'TUE, FEB 24', value: 0 },
+            { label: 'TUE, 24 FEB', value: 1 },
+            { label: '2026-02-24', value: 2 },
+          ]}
+        />
+      </Section>
+
+      <Section title="World Time">
         <CityList
           title="Your Cities"
           titleCount={`${totalCities}/${maxCities}`}
@@ -49,9 +62,6 @@ export const SettingsPage: React.FC = () => {
             </div>
           </div>
         </CityList>
-      </Section>
-
-      <Section>
         <CityList
           title="Available Cities"
           cities={unpinnedCityList}

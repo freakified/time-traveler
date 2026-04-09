@@ -39,6 +39,19 @@ function getPinnedCities() {
   ];
 }
 
+function getDateFormat() {
+  try {
+    var savedSettings = localStorage.getItem('timeTravelerSettings');
+    if (savedSettings) {
+      var settings = JSON.parse(savedSettings);
+      if (settings.SETTING_DATE_FORMAT !== undefined) {
+        return parseInt(settings.SETTING_DATE_FORMAT, 10) || 0;
+      }
+    }
+  } catch (e) {}
+  return 0;
+}
+
 function getCustomCities() {
   try {
     var savedSettings = localStorage.getItem('timeTravelerSettings');
@@ -153,9 +166,12 @@ function sendCityData(coords) {
       CITY_DATA: chunk
     };
 
-    if (start === 0 && coords) {
-      dict.USER_LAT = Math.round(coords.latitude * 100);
-      dict.USER_LON = Math.round(coords.longitude * 100);
+    if (start === 0) {
+      dict.SETTING_DATE_FORMAT = getDateFormat();
+      if (coords) {
+        dict.USER_LAT = Math.round(coords.latitude * 100);
+        dict.USER_LON = Math.round(coords.longitude * 100);
+      }
     }
 
     chunks.push(dict);

@@ -1,7 +1,7 @@
 {
   "name": "time-traveler",
   "author": "Freakified",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "keywords": [
     "pebble-app"
   ],
@@ -34,7 +34,8 @@
       "CITY_DATA_TOTAL",
       "CITY_DATA",
       "USER_LAT",
-      "USER_LON"
+      "USER_LON",
+      "SETTING_DATE_FORMAT"
     ],
     "resources": {
       "media": [

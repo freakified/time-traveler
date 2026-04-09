@@ -33,4 +33,5 @@ export interface Capabilities {
 export interface Settings {
   SETTING_PINNED_CITIES: string;
   SETTING_CUSTOM_CITIES: string;
+  SETTING_DATE_FORMAT: number;
 }

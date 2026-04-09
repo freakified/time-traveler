@@ -17,6 +17,11 @@ static MessagingContext s_messaging_ctx;
 
 static void prv_inbox_received(DictionaryIterator *iter, void *context) {
   // Check for city data
+  Tuple *date_format_tuple = dict_find(iter, MESSAGE_KEY_SETTING_DATE_FORMAT);
+  if (date_format_tuple) {
+    time_traveler_data_set_date_format((int8_t)date_format_tuple->value->int32);
+  }
+
   Tuple *data_start = dict_find(iter, MESSAGE_KEY_CITY_DATA_START);
   Tuple *data_count = dict_find(iter, MESSAGE_KEY_CITY_DATA_COUNT);
   Tuple *data_total = dict_find(iter, MESSAGE_KEY_CITY_DATA_TOTAL);

@@ -2,6 +2,8 @@
 #include "metrics.h"
 #include <pebble.h>
 
+static int8_t s_date_format = 0;
+
 void time_traveler_main_window_view_model_announce_changed(
     WorldClockMainWindowViewModel *model) {
   if (model->announce_changed) {
@@ -32,6 +34,26 @@ void time_traveler_view_model_set_time(WorldClockMainWindowViewModel *model,
 void time_traveler_view_model_set_relative_info(
     WorldClockMainWindowViewModel *model, int16_t relative_offset_minutes,
     WorldClockDataPoint *data_point) {
+  if (time_traveler_data_is_user_location(data_point)) {
+    static const char *s_days[]   = {"SUN","MON","TUE","WED","THU","FRI","SAT"};
+    static const char *s_months[] = {"JAN","FEB","MAR","APR","MAY","JUN",
+                                     "JUL","AUG","SEP","OCT","NOV","DEC"};
+    time_t now = time(NULL);
+    struct tm *t = localtime(&now);
+    if (s_date_format == 1) {
+      snprintf(model->relative_info.text, sizeof(model->relative_info.text),
+               "%s, %02d %s", s_days[t->tm_wday], t->tm_mday, s_months[t->tm_mon]);
+    } else if (s_date_format == 2) {
+      snprintf(model->relative_info.text, sizeof(model->relative_info.text),
+               "%04d-%02d-%02d", t->tm_year + 1900, t->tm_mon + 1, t->tm_mday);
+    } else {
+      snprintf(model->relative_info.text, sizeof(model->relative_info.text),
+               "%s, %s %02d", s_days[t->tm_wday], s_months[t->tm_mon], t->tm_mday);
+    }
+    model->current_offset = 0;
+    return;
+  }
+
   int16_t abs_minutes = (relative_offset_minutes < 0) ? -relative_offset_minutes
                                                       : relative_offset_minutes;
   int16_t hours = abs_minutes / 60;
@@ -59,7 +81,7 @@ void time_traveler_view_model_set_relative_info(
   snprintf(model->relative_info.text, sizeof(model->relative_info.text),
            "%s, %s", day_str, offset_str);
 
-  model->current_offset = relative_offset_minutes / 60;
+  model->current_offset = relative_offset_minutes;
 }
 
 static WorldClockDataPoint s_user_location_dp = {
@@ -78,6 +100,10 @@ static WorldClockDataPoint s_user_location_dp = {
 static float s_user_lat = 0;
 static float s_user_lon = 0;
 static bool s_has_user_location = false;
+
+void time_traveler_data_set_date_format(int8_t format) {
+  s_date_format = format;
+}
 
 void time_traveler_data_set_user_location(float lat, float lon) {
   s_user_lat = lat;

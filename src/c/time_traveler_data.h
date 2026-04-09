@@ -101,6 +101,7 @@ void time_traveler_data_set_user_location(float lat, float lon);
 bool time_traveler_data_has_user_location(void);
 void time_traveler_data_get_user_location(float *lat, float *lon);
 bool time_traveler_data_is_user_location(WorldClockDataPoint *dp);
+void time_traveler_data_set_date_format(int8_t format);
 
 WorldClockDataPoint *time_traveler_data_point_at(int idx);
 WorldClockDataPoint *time_traveler_data_point_delta(WorldClockDataPoint *dp,
