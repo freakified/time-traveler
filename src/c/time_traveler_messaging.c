@@ -35,6 +35,19 @@ static void prv_inbox_received(DictionaryIterator *iter, void *context) {
     time_traveler_data_set_user_location(lat, lon);
   }
 
+  Tuple *matched_city_tuple = dict_find(iter, MESSAGE_KEY_USER_MATCHED_CITY_INDEX);
+  if (matched_city_tuple) {
+    int matched = (int)matched_city_tuple->value->int32;
+    if (matched >= 0) {
+      time_traveler_data_set_user_matched_city(matched);
+    } else {
+      time_traveler_data_clear_user_matched_city();
+    }
+  } else if (user_lat_tuple && user_lon_tuple) {
+    // Got coordinates but no match key — user is not near any pinned city
+    time_traveler_data_clear_user_matched_city();
+  }
+
   if (data_start && data_count && data_total && data_payload) {
     if (data_payload->type != TUPLE_BYTE_ARRAY) {
       APP_LOG(APP_LOG_LEVEL_WARNING, "city_data tuple type invalid: %d",

@@ -2,6 +2,9 @@
 #include "metrics.h"
 #include <pebble.h>
 
+static WorldClockDataPoint s_cities[MAX_JS_CITIES];
+static int s_num_cities;
+
 static int8_t s_date_format = 0;
 
 void time_traveler_main_window_view_model_announce_changed(
@@ -100,6 +103,7 @@ static WorldClockDataPoint s_user_location_dp = {
 static float s_user_lat = 0;
 static float s_user_lon = 0;
 static bool s_has_user_location = false;
+static int s_user_matched_city_index = -1;
 
 void time_traveler_data_set_date_format(int8_t format) {
   s_date_format = format;
@@ -119,7 +123,24 @@ void time_traveler_data_get_user_location(float *lat, float *lon) {
 }
 
 bool time_traveler_data_is_user_location(WorldClockDataPoint *dp) {
-  return (dp == &s_user_location_dp);
+  if (dp == &s_user_location_dp) return true;
+  // If the user is matched to a pinned city, that city counts as user location
+  if (s_user_matched_city_index >= 0 && s_user_matched_city_index < s_num_cities) {
+    return (dp == &s_cities[s_user_matched_city_index]);
+  }
+  return false;
+}
+
+void time_traveler_data_set_user_matched_city(int index) {
+  s_user_matched_city_index = index;
+}
+
+int time_traveler_data_get_user_matched_city(void) {
+  return s_user_matched_city_index;
+}
+
+void time_traveler_data_clear_user_matched_city(void) {
+  s_user_matched_city_index = -1;
 }
 
 int time_traveler_data_find_user_location_index(void) {
@@ -266,9 +287,8 @@ void time_traveler_view_model_deinit(WorldClockMainWindowViewModel *model) {}
 
 // ============================================================
 // Dynamic city list — populated entirely from JS blob
+// (s_cities and s_num_cities are forward-declared at the top)
 // ============================================================
-static WorldClockDataPoint s_cities[MAX_JS_CITIES];
-static int s_num_cities = 0;
 
 // Apply binary blob from JS: CITY_BLOB_BYTES_PER_CITY bytes per city
 //   bytes 0-15:  city name, null-terminated
@@ -310,14 +330,16 @@ void time_traveler_data_apply_js_blob(const uint8_t *blob, uint16_t length) {
 
 int time_traveler_num_data_points(void) {
   int count = s_num_cities;
-  if (s_has_user_location) {
+  // Only add the synthetic "CURRENT LOCATION" entry when we have GPS
+  // but are NOT matched to a pinned city
+  if (s_has_user_location && s_user_matched_city_index < 0) {
     count++;
   }
   return count;
 }
 
 static int prv_get_user_location_insert_index(void) {
-  if (!s_has_user_location)
+  if (!s_has_user_location || s_user_matched_city_index >= 0)
     return -1;
 
   // Find where to insert user location based on longitude
@@ -336,7 +358,8 @@ WorldClockDataPoint *time_traveler_data_point_at(int idx) {
     return NULL;
   }
 
-  if (s_has_user_location) {
+  // Only insert the synthetic entry when not matched to a pinned city
+  if (s_has_user_location && s_user_matched_city_index < 0) {
     int user_idx = prv_get_user_location_insert_index();
     if (idx == user_idx) {
       return &s_user_location_dp;
@@ -358,7 +381,8 @@ CityCoordinates *time_traveler_get_city_coordinates(int city_index) {
     return NULL;
   }
 
-  if (s_has_user_location) {
+  if (s_has_user_location && s_user_matched_city_index < 0) {
+    // Synthetic user location entry is in the list
     int user_idx = prv_get_user_location_insert_index();
     if (city_index == user_idx) {
       s_actual_user_coords.latitude = s_user_lat;
@@ -371,6 +395,14 @@ CityCoordinates *time_traveler_get_city_coordinates(int city_index) {
   }
 
   if (city_index < 0 || city_index >= s_num_cities) return NULL;
+
+  // If this is the matched city, return real GPS coords for map accuracy
+  if (s_has_user_location && city_index == s_user_matched_city_index) {
+    s_actual_user_coords.latitude = s_user_lat;
+    s_actual_user_coords.longitude = s_user_lon;
+    return &s_actual_user_coords;
+  }
+
   s_city_coord_ret.latitude  = s_cities[city_index].latitude;
   s_city_coord_ret.longitude = s_cities[city_index].longitude;
   return &s_city_coord_ret;

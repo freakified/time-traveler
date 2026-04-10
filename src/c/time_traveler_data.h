@@ -101,6 +101,11 @@ void time_traveler_data_set_user_location(float lat, float lon);
 bool time_traveler_data_has_user_location(void);
 void time_traveler_data_get_user_location(float *lat, float *lon);
 bool time_traveler_data_is_user_location(WorldClockDataPoint *dp);
+
+// Matched city: when user GPS is near a pinned city, merge them
+void time_traveler_data_set_user_matched_city(int index);
+int time_traveler_data_get_user_matched_city(void);
+void time_traveler_data_clear_user_matched_city(void);
 void time_traveler_data_set_date_format(int8_t format);
 
 WorldClockDataPoint *time_traveler_data_point_at(int idx);

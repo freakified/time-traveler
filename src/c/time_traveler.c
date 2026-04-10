@@ -10,6 +10,7 @@
 #define PERSIST_KEY_CITY_DATA_BLOB 105  // bumped to avoid replaying old-format blobs
 #define PERSIST_KEY_USER_LAT 102
 #define PERSIST_KEY_USER_LON 103
+#define PERSIST_KEY_USER_MATCHED_CITY 106
 
 static void set_data_point(WorldClockData *data, WorldClockDataPoint *dp) {
   if (!dp) return;
@@ -23,7 +24,7 @@ static void prv_city_data_received(const uint8_t *blob, uint16_t length,
   WorldClockData *data = window_get_user_data(time_traveler_main_window_get());
   if (!data) return;
 
-  // Caching coordinates from data model
+  // Caching coordinates and matched city from data model
   if (time_traveler_data_has_user_location()) {
     float lat, lon;
     time_traveler_data_get_user_location(&lat, &lon);
@@ -32,6 +33,8 @@ static void prv_city_data_received(const uint8_t *blob, uint16_t length,
     persist_write_data(PERSIST_KEY_USER_LAT, &lat_fixed, sizeof(lat_fixed));
     persist_write_data(PERSIST_KEY_USER_LON, &lon_fixed, sizeof(lon_fixed));
   }
+  int matched = time_traveler_data_get_user_matched_city();
+  persist_write_int(PERSIST_KEY_USER_MATCHED_CITY, matched);
   
   time_traveler_data_apply_js_blob(blob, length);
 
@@ -48,8 +51,14 @@ static void prv_city_data_received(const uint8_t *blob, uint16_t length,
   if (data->data_point) {
     set_data_point(data, data->data_point);
   } else if (time_traveler_num_data_points() > 0) {
-    int user_idx = time_traveler_data_find_user_location_index();
-    set_data_point(data, time_traveler_data_point_at(user_idx >= 0 ? user_idx : 0));
+    // Prefer matched city, then synthetic user location, then index 0
+    int matched_idx = time_traveler_data_get_user_matched_city();
+    if (matched_idx >= 0 && matched_idx < time_traveler_num_data_points()) {
+      set_data_point(data, time_traveler_data_point_at(matched_idx));
+    } else {
+      int user_idx = time_traveler_data_find_user_location_index();
+      set_data_point(data, time_traveler_data_point_at(user_idx >= 0 ? user_idx : 0));
+    }
   }
 
   if (data->data_point) {
@@ -90,6 +99,14 @@ static void init() {
     time_traveler_data_set_user_location((float)lat_fixed / 100.0f, (float)lon_fixed / 100.0f);
   }
 
+  // Restore matched city index from cache
+  if (persist_exists(PERSIST_KEY_USER_MATCHED_CITY)) {
+    int matched = persist_read_int(PERSIST_KEY_USER_MATCHED_CITY);
+    if (matched >= 0) {
+      time_traveler_data_set_user_matched_city(matched);
+    }
+  }
+
   // Check for cached city data
   if (persist_exists(PERSIST_KEY_CITY_DATA_BLOB)) {
     static uint8_t blob[MAX_JS_CITIES * CITY_BLOB_BYTES_PER_CITY]; // static to avoid stack overflow
@@ -104,10 +121,16 @@ static void init() {
     start_index = persist_read_int(PERSIST_KEY_USER_CITY_INDEX);
   }
 
-  // Find "CURRENT LOCATION" index and always prefer it on startup
-  int user_idx = time_traveler_data_find_user_location_index();
-  if (user_idx >= 0) {
-    start_index = user_idx;
+  // Prefer matched city on startup if available, otherwise fall back
+  // to synthetic "CURRENT LOCATION" entry
+  int matched = time_traveler_data_get_user_matched_city();
+  if (matched >= 0 && matched < time_traveler_num_data_points()) {
+    start_index = matched;
+  } else {
+    int user_idx = time_traveler_data_find_user_location_index();
+    if (user_idx >= 0) {
+      start_index = user_idx;
+    }
   }
 
   if (start_index >= 0) {

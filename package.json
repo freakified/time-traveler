@@ -35,7 +35,8 @@
       "CITY_DATA",
       "USER_LAT",
       "USER_LON",
-      "SETTING_DATE_FORMAT"
+      "SETTING_DATE_FORMAT",
+      "USER_MATCHED_CITY_INDEX"
     ],
     "resources": {
       "media": [

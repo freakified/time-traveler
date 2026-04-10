@@ -81,7 +81,29 @@ function pushInt16BE(blob, value) {
 //   bytes 20-21: offset_minutes as int16, big-endian
 //   byte  22:    day_label (0=today, 1=tomorrow, 255=yesterday)
 //   byte  23:    is_night (0 or 1)
-function computeCityDataBlob(now) {
+// ~50km threshold: 0.45 degrees squared ≈ 0.2025
+var PROXIMITY_THRESHOLD_SQ = 0.2025;
+
+function findNearestEntryByCoords(entries, lat, lon) {
+  var bestIdx = -1;
+  var bestDist = PROXIMITY_THRESHOLD_SQ;
+
+  for (var i = 0; i < entries.length; i++) {
+    var entry = entries[i];
+    var entryLat = entry.type === 'standard' ? entry.city.lat : entry.cc.lat;
+    var entryLon = entry.type === 'standard' ? entry.city.lon : entry.cc.lon;
+    var dlat = entryLat - lat;
+    var dlon = entryLon - lon;
+    var dist = dlat * dlat + dlon * dlon;
+    if (dist < bestDist) {
+      bestDist = dist;
+      bestIdx = i;
+    }
+  }
+  return bestIdx;
+}
+
+function computeCityDataBlob(now, coords) {
   var CITIES = timezone.CITIES;
   var pinnedNames = getPinnedCities();
   var customCities = getCustomCities();
@@ -106,6 +128,12 @@ function computeCityDataBlob(now) {
   }
 
   entries.sort(function (a, b) { return a.lon - b.lon; });
+
+  // After sorting, determine proximity match
+  var matchedCityIndex = -1;
+  if (coords) {
+    matchedCityIndex = findNearestEntryByCoords(entries, coords.latitude, coords.longitude);
+  }
 
   var blob = [];
   for (var e = 0; e < entries.length; e++) {
@@ -135,7 +163,7 @@ function computeCityDataBlob(now) {
     }
   }
 
-  return blob;
+  return { blob: blob, matchedCityIndex: matchedCityIndex };
 }
 
 function cityDataBlobsEqual(a, b) {
@@ -148,12 +176,18 @@ function cityDataBlobsEqual(a, b) {
 
 function sendCityData(coords) {
   var now = new Date();
-  var blob = computeCityDataBlob(now);
+  var result = computeCityDataBlob(now, coords);
+  var blob = result.blob;
+  var matchedCityIndex = result.matchedCityIndex;
 
   if (cityDataBlobsEqual(blob, lastSentCityData) && !coords) {
     return;
   }
   lastSentCityData = blob;
+
+  if (matchedCityIndex >= 0) {
+    console.log('User matched to pinned city at index ' + matchedCityIndex);
+  }
 
   var CHUNK_SIZE = 120; // 5 cities × 24 bytes
   var chunks = [];
@@ -171,6 +205,7 @@ function sendCityData(coords) {
       if (coords) {
         dict.USER_LAT = Math.round(coords.latitude * 100);
         dict.USER_LON = Math.round(coords.longitude * 100);
+        dict.USER_MATCHED_CITY_INDEX = matchedCityIndex;
       }
     }
 
