@@ -110,21 +110,34 @@ static uint8_t longitude_to_pixel(int32_t longitude, uint16_t width) {
 void time_traveler_daylight_interval(int32_t latitude, SolarPosition solar, uint16_t width, uint8_t *start_out, uint8_t *end_out) {
   int32_t tan_product = fixed_tanProduct(latitude, solar.declination);
   
+  // tan(lat)*tan(decl) >= 1: same hemisphere, sun never sets → polar day
   if (tan_product >= TRIG_MAX_RATIO) {
-    *start_out = 255; // FULL_NIGHT_SENTINEL (used in JS, but wait! JS used 255 from constants.js maybe?)
-    *end_out = 255;
+    *start_out = 0;
+    *end_out = (uint8_t)((width - 1 > 254) ? 254 : width - 1);
     return;
   }
-  
+
+  // tan(lat)*tan(decl) <= -1: opposite hemispheres, sun never rises → polar night
   if (tan_product <= -TRIG_MAX_RATIO) {
-    *start_out = 0; // FULL_DAY_START
-    *end_out = (width - 1 > 254) ? 254 : width - 1;
+    *start_out = 255;
+    *end_out = 255;
     return;
   }
   
   // hourAngle in TRIG units from fixed_acos
   int32_t hour_angle = fixed_acos(-tan_product);
-  
+
+  // When hour_angle == TRIG_MAX_ANGLE/2 (180°), start_lon and end_lon both
+  // collapse to the anti-subsolar meridian, so start_px == end_px. The acos
+  // lookup table has limited resolution near this boundary, so rows just inside
+  // the full-day threshold get index 0 and produce an erroneous full-night row.
+  // Treat them as full-day to match the tan_product <= -TRIG_MAX_RATIO path above.
+  if (hour_angle >= TRIG_MAX_ANGLE / 2) {
+    *start_out = 0;
+    *end_out = (uint8_t)((width - 1 > 254) ? 254 : width - 1);
+    return;
+  }
+
   // The hourAngle spans from 0 to TRIG_MAX_ANGLE/2
   int32_t start_lon = solar.subsolar_longitude - hour_angle;
   int32_t end_lon = solar.subsolar_longitude + hour_angle;
