@@ -91,12 +91,14 @@ static void init() {
   WorldClockData *data = malloc(sizeof(WorldClockData));
   memset(data, 0, sizeof(WorldClockData));
 
-  // Restore user coordinates
+  // Restore user coordinates, or estimate from timezone if none persisted
   if (persist_exists(PERSIST_KEY_USER_LAT) && persist_exists(PERSIST_KEY_USER_LON)) {
     int32_t lat_fixed, lon_fixed;
     persist_read_data(PERSIST_KEY_USER_LAT, &lat_fixed, sizeof(lat_fixed));
     persist_read_data(PERSIST_KEY_USER_LON, &lon_fixed, sizeof(lon_fixed));
     time_traveler_data_set_user_location((float)lat_fixed / 100.0f, (float)lon_fixed / 100.0f);
+  } else {
+    time_traveler_data_estimate_location_from_timezone();
   }
 
   // Restore matched city index from cache

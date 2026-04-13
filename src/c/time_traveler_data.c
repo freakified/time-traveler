@@ -103,6 +103,7 @@ static WorldClockDataPoint s_user_location_dp = {
 static float s_user_lat = 0;
 static float s_user_lon = 0;
 static bool s_has_user_location = false;
+static bool s_location_is_estimated = false;
 static int s_user_matched_city_index = -1;
 
 void time_traveler_data_set_date_format(int8_t format) {
@@ -113,6 +114,23 @@ void time_traveler_data_set_user_location(float lat, float lon) {
   s_user_lat = lat;
   s_user_lon = lon;
   s_has_user_location = true;
+  s_location_is_estimated = false;
+#if defined(PBL_PLATFORM_APLITE) || defined(PBL_PLATFORM_BASALT) ||            \
+    defined(PBL_PLATFORM_DIORITE) || defined(PBL_PLATFORM_FLINT)
+  strcpy(s_user_location_dp.city, "CURR. LOCATION");
+#else
+  strcpy(s_user_location_dp.city, "CURRENT LOCATION");
+#endif
+}
+
+void time_traveler_data_estimate_location_from_timezone(void) {
+  time_t now = time(NULL);
+  struct tm *local = localtime(&now);
+  s_user_lon = ((float)local->tm_gmtoff / 3600.0f) * 15.0f;
+  s_user_lat = 40.0f;
+  s_has_user_location = true;
+  s_location_is_estimated = true;
+  strcpy(s_user_location_dp.city, "EST. LOCATION");
 }
 
 bool time_traveler_data_has_user_location(void) { return s_has_user_location; }
