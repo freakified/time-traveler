@@ -436,11 +436,8 @@ void time_traveler_main_window_update_status_bar_time(void) {
     return;
   WorldClockData *data = window_get_user_data(s_main_window);
 
-  time_t now = time(NULL);
-  struct tm *local_time = localtime(&now);
-
-  static char time_str[] = "00:00";
-  strftime(time_str, sizeof(time_str), "%H:%M", local_time);
+  static char time_str[10];
+  clock_copy_time_string(time_str, sizeof(time_str));
 
   text_layer_set_text(data->fake_statusbar, time_str);
 }
