@@ -363,7 +363,8 @@ void time_traveler_main_window_update_gps_arrow(WorldClockData *data,
     int16_t text_right_x;
     if (PBL_IF_ROUND_ELSE(true, false)) {
       int16_t half_total = (text_size.w + spacing + LAYOUT_GPS_ARROW_WIDTH) / 2;
-      int16_t center = city_frame.origin.x + city_frame.size.w / 2;
+      GRect window_bounds = layer_get_bounds(window_get_root_layer(s_main_window));
+      int16_t center = window_bounds.size.w / 2;
       int16_t new_text_left = center - half_total;
       GRect shifted_frame = city_frame;
       shifted_frame.origin.x = new_text_left;
@@ -579,6 +580,7 @@ static void main_window_load(Window *window) {
 
   if (data->data_point) {
     time_traveler_main_window_update_night_mode(data);
+    time_traveler_main_window_update_gps_arrow(data, data->data_point);
   }
 }
 
