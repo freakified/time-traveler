@@ -103,6 +103,12 @@ bool time_traveler_data_has_user_location(void);
 void time_traveler_data_get_user_location(float *lat, float *lon);
 bool time_traveler_data_is_user_location(WorldClockDataPoint *dp);
 
+// Request user UTC offset via JS
+// Using this instead of tm_gmtoff to attempt to fix offset bug
+void time_traveler_data_set_user_utc_offset_minutes(int16_t minutes);
+bool time_traveler_data_has_user_utc_offset_minutes(void);
+int16_t time_traveler_data_get_user_utc_offset_minutes(void);
+
 // Matched city: when user GPS is near a pinned city, merge them
 void time_traveler_data_set_user_matched_city(int index);
 int time_traveler_data_get_user_matched_city(void);

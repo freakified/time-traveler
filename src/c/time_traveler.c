@@ -11,6 +11,7 @@
 #define PERSIST_KEY_USER_LAT 102
 #define PERSIST_KEY_USER_LON 103
 #define PERSIST_KEY_USER_MATCHED_CITY 106
+#define PERSIST_KEY_USER_UTC_OFFSET_MINUTES 107
 
 static void set_data_point(WorldClockData *data, WorldClockDataPoint *dp) {
   if (!dp) return;
@@ -35,7 +36,12 @@ static void prv_city_data_received(const uint8_t *blob, uint16_t length,
   }
   int matched = time_traveler_data_get_user_matched_city();
   persist_write_int(PERSIST_KEY_USER_MATCHED_CITY, matched);
-  
+
+  if (time_traveler_data_has_user_utc_offset_minutes()) {
+    persist_write_int(PERSIST_KEY_USER_UTC_OFFSET_MINUTES,
+                      time_traveler_data_get_user_utc_offset_minutes());
+  }
+
   time_traveler_data_apply_js_blob(blob, length);
 
   // Cache identifying data for next startup
@@ -76,6 +82,7 @@ static void prv_handle_minute_tick(struct tm *tick_time, TimeUnits units_changed
         time_traveler_data_point_view_model_numbers(data->data_point);
     time_traveler_view_model_fill_numbers(&data->view_model, numbers,
                                         data->data_point);
+    time_traveler_main_window_view_model_announce_changed(&data->view_model);
     const GRect map_rect = time_traveler_calibrated_map_rect(data);
     time_traveler_overlay_update(&data->overlay, map_rect.size.w, map_rect.size.h);
     layer_mark_dirty(data->map_layer);
@@ -107,6 +114,13 @@ static void init() {
     if (matched >= 0) {
       time_traveler_data_set_user_matched_city(matched);
     }
+  }
+
+  // Restore DST-aware user UTC offset from cache so cities render correctly
+  // before the first fresh message arrives from the phone.
+  if (persist_exists(PERSIST_KEY_USER_UTC_OFFSET_MINUTES)) {
+    int16_t offset = (int16_t)persist_read_int(PERSIST_KEY_USER_UTC_OFFSET_MINUTES);
+    time_traveler_data_set_user_utc_offset_minutes(offset);
   }
 
   // Check for cached city data

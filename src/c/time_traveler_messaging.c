@@ -28,11 +28,18 @@ static void prv_inbox_received(DictionaryIterator *iter, void *context) {
   Tuple *data_payload = dict_find(iter, MESSAGE_KEY_CITY_DATA);
   Tuple *user_lat_tuple = dict_find(iter, MESSAGE_KEY_USER_LAT);
   Tuple *user_lon_tuple = dict_find(iter, MESSAGE_KEY_USER_LON);
+  Tuple *user_utc_offset_tuple =
+      dict_find(iter, MESSAGE_KEY_USER_UTC_OFFSET_MINUTES);
 
   if (user_lat_tuple && user_lon_tuple) {
     float lat = (float)user_lat_tuple->value->int32 / 100.0f;
     float lon = (float)user_lon_tuple->value->int32 / 100.0f;
     time_traveler_data_set_user_location(lat, lon);
+  }
+
+  if (user_utc_offset_tuple) {
+    time_traveler_data_set_user_utc_offset_minutes(
+        (int16_t)user_utc_offset_tuple->value->int32);
   }
 
   Tuple *matched_city_tuple = dict_find(iter, MESSAGE_KEY_USER_MATCHED_CITY_INDEX);

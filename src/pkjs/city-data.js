@@ -202,6 +202,7 @@ function sendCityData(coords) {
 
     if (start === 0) {
       dict.SETTING_DATE_FORMAT = getDateFormat();
+      dict.USER_UTC_OFFSET_MINUTES = -now.getTimezoneOffset();
       if (coords) {
         dict.USER_LAT = Math.round(coords.latitude * 100);
         dict.USER_LON = Math.round(coords.longitude * 100);

@@ -105,6 +105,8 @@ static float s_user_lon = 0;
 static bool s_has_user_location = false;
 static bool s_location_is_estimated = false;
 static int s_user_matched_city_index = -1;
+static int16_t s_user_utc_offset_minutes = 0;
+static bool s_has_user_utc_offset_minutes = false;
 
 void time_traveler_data_set_date_format(int8_t format) {
   s_date_format = format;
@@ -161,6 +163,19 @@ void time_traveler_data_clear_user_matched_city(void) {
   s_user_matched_city_index = -1;
 }
 
+void time_traveler_data_set_user_utc_offset_minutes(int16_t minutes) {
+  s_user_utc_offset_minutes = minutes;
+  s_has_user_utc_offset_minutes = true;
+}
+
+bool time_traveler_data_has_user_utc_offset_minutes(void) {
+  return s_has_user_utc_offset_minutes;
+}
+
+int16_t time_traveler_data_get_user_utc_offset_minutes(void) {
+  return s_user_utc_offset_minutes;
+}
+
 int time_traveler_data_find_user_location_index(void) {
   for (int i = 0; i < time_traveler_num_data_points(); i++) {
     if (time_traveler_data_is_user_location(time_traveler_data_point_at(i))) {
@@ -186,19 +201,26 @@ time_traveler_data_point_view_model_numbers(WorldClockDataPoint *data_point) {
     };
   }
 
-  time_t gmt_seconds = now - current_local->tm_gmtoff;
-  int16_t local_offset_minutes = current_local->tm_gmtoff / 60;
-
-  time_t city_seconds = gmt_seconds + (data_point->offset_minutes * 60);
-  struct tm *city_time = localtime(&city_seconds);
+  // Prefer the phone-computed offset (DST-aware). Some Pebble firmwares report
+  // tm_gmtoff without DST applied, which would make every city appear off by
+  // one hour while DST is active.
+  int16_t local_offset_minutes = s_has_user_utc_offset_minutes
+                                     ? s_user_utc_offset_minutes
+                                     : (int16_t)(current_local->tm_gmtoff / 60);
 
   int16_t relative_offset_minutes =
       data_point->offset_minutes - local_offset_minutes;
 
+  // Derive the city's wall time from the watch's wall clock rather than
+  // round-tripping through tm_gmtoff, which we can't trust.
+  int32_t total_minutes = current_local->tm_hour * 60 + current_local->tm_min +
+                          relative_offset_minutes;
+  total_minutes = ((total_minutes % 1440) + 1440) % 1440;
+
   return (WorldClockDataViewNumbers){
-      .hour = city_time->tm_hour,
+      .hour = (int16_t)(total_minutes / 60),
       .offset = relative_offset_minutes,
-      .minute = city_time->tm_min,
+      .minute = (int16_t)(total_minutes % 60),
   };
 }
 
