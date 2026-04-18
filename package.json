@@ -37,7 +37,8 @@
       "USER_LON",
       "USER_UTC_OFFSET_MINUTES",
       "SETTING_DATE_FORMAT",
-      "USER_MATCHED_CITY_INDEX"
+      "USER_MATCHED_CITY_INDEX",
+      "LOCATION_AVAILABLE"
     ],
     "resources": {
       "media": [

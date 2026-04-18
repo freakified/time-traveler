@@ -2,6 +2,7 @@ var timezone = require('./cities');
 var FULL_NIGHT_SENTINEL = require('./constants').FULL_NIGHT_SENTINEL;
 
 var lastSentCityData = null;
+var lastSentLocationAvailable = null;
 var cachedPinnedCities = null;
 
 function sendDictionary(dictionary, success, failure) {
@@ -174,16 +175,21 @@ function cityDataBlobsEqual(a, b) {
   return true;
 }
 
-function sendCityData(coords) {
+function sendCityData(coords, locationAvailable) {
   var now = new Date();
   var result = computeCityDataBlob(now, coords);
   var blob = result.blob;
   var matchedCityIndex = result.matchedCityIndex;
 
-  if (cityDataBlobsEqual(blob, lastSentCityData) && !coords) {
+  var locationAvailableChanged = (locationAvailable !== null && locationAvailable !== undefined
+                                  && locationAvailable !== lastSentLocationAvailable);
+  if (cityDataBlobsEqual(blob, lastSentCityData) && !coords && !locationAvailableChanged) {
     return;
   }
   lastSentCityData = blob;
+  if (locationAvailable !== null && locationAvailable !== undefined) {
+    lastSentLocationAvailable = locationAvailable;
+  }
 
   if (matchedCityIndex >= 0) {
     console.log('User matched to pinned city at index ' + matchedCityIndex);
@@ -207,6 +213,9 @@ function sendCityData(coords) {
         dict.USER_LAT = Math.round(coords.latitude * 100);
         dict.USER_LON = Math.round(coords.longitude * 100);
         dict.USER_MATCHED_CITY_INDEX = matchedCityIndex;
+      }
+      if (locationAvailable === false) {
+        dict.LOCATION_AVAILABLE = 0;
       }
     }
 

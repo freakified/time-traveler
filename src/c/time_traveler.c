@@ -26,7 +26,7 @@ static void prv_city_data_received(const uint8_t *blob, uint16_t length,
   if (!data) return;
 
   // Caching coordinates and matched city from data model
-  if (time_traveler_data_has_user_location()) {
+  if (time_traveler_data_has_user_location() && !time_traveler_data_location_is_estimated()) {
     float lat, lon;
     time_traveler_data_get_user_location(&lat, &lon);
     int32_t lat_fixed = (int32_t)(lat * 100);

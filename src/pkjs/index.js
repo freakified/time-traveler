@@ -6,11 +6,12 @@ var configDataUri = 'https://freakified.github.io/time-traveler/';
 var configLocalUri = 'http://10.25.219.24:3000/index.html';
 
 var dstCheckTimer = null;
+var locationAvailable = null;
 
 function startDstChecks() {
   if (dstCheckTimer) clearInterval(dstCheckTimer);
   dstCheckTimer = setInterval(function () {
-    cityData.sendCityData();
+    cityData.sendCityData(null, locationAvailable);
   }, 30 * 60 * 1000);
 }
 
@@ -19,16 +20,19 @@ Pebble.addEventListener("ready", function () {
 
   if (navigator.geolocation) {
     navigator.geolocation.getCurrentPosition(function (pos) {
-      cityData.sendCityData(pos.coords);
+      locationAvailable = true;
+      cityData.sendCityData(pos.coords, locationAvailable);
     }, function () {
-      cityData.sendCityData();
+      locationAvailable = false;
+      cityData.sendCityData(null, locationAvailable);
     }, {
       enableHighAccuracy: false,
       timeout: 5000,
       maximumAge: 600000
     });
   } else {
-    cityData.sendCityData();
+    locationAvailable = false;
+    cityData.sendCityData(null, locationAvailable);
   }
 });
 
@@ -37,7 +41,7 @@ Pebble.addEventListener("appmessage", function (event) {
 
   if (payload.REQUEST_CITY_DATA) {
     cityData.forceResend();
-    cityData.sendCityData();
+    cityData.sendCityData(null, locationAvailable);
     return;
   }
 });
@@ -103,5 +107,5 @@ Pebble.addEventListener('webviewclosed', function (e) {
   // Clear cached city list and send fresh data to watch
   cityData.clearCachedPinnedCities();
   cityData.forceResend();
-  cityData.sendCityData();
+  cityData.sendCityData(null, locationAvailable);
 });

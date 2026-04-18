@@ -137,6 +137,8 @@ void time_traveler_data_estimate_location_from_timezone(void) {
 
 bool time_traveler_data_has_user_location(void) { return s_has_user_location; }
 
+bool time_traveler_data_location_is_estimated(void) { return s_location_is_estimated; }
+
 void time_traveler_data_get_user_location(float *lat, float *lon) {
   if (lat) *lat = s_user_lat;
   if (lon) *lon = s_user_lon;

@@ -100,6 +100,7 @@ int time_traveler_num_data_points(void);
 void time_traveler_data_set_user_location(float lat, float lon);
 void time_traveler_data_estimate_location_from_timezone(void);
 bool time_traveler_data_has_user_location(void);
+bool time_traveler_data_location_is_estimated(void);
 void time_traveler_data_get_user_location(float *lat, float *lon);
 bool time_traveler_data_is_user_location(WorldClockDataPoint *dp);
 

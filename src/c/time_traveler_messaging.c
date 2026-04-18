@@ -31,6 +31,11 @@ static void prv_inbox_received(DictionaryIterator *iter, void *context) {
   Tuple *user_utc_offset_tuple =
       dict_find(iter, MESSAGE_KEY_USER_UTC_OFFSET_MINUTES);
 
+  Tuple *loc_avail_tuple = dict_find(iter, MESSAGE_KEY_LOCATION_AVAILABLE);
+  if (loc_avail_tuple && loc_avail_tuple->value->int32 == 0) {
+    time_traveler_data_estimate_location_from_timezone();
+  }
+
   if (user_lat_tuple && user_lon_tuple) {
     float lat = (float)user_lat_tuple->value->int32 / 100.0f;
     float lon = (float)user_lon_tuple->value->int32 / 100.0f;
