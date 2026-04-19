@@ -1,9 +1,7 @@
 var cityData = require('./city-data');
 var timezone = require('./cities');
 
-var USE_LOCAL_CONFIG = false;
 var configDataUri = 'https://freakified.github.io/time-traveler/';
-var configLocalUri = 'http://10.25.219.24:3000/index.html';
 
 var dstCheckTimer = null;
 var locationAvailable = null;
@@ -49,7 +47,7 @@ Pebble.addEventListener("appmessage", function (event) {
 // ---- Configuration ----
 
 Pebble.addEventListener('showConfiguration', function () {
-  var url = USE_LOCAL_CONFIG ? configLocalUri : configDataUri;
+  var url = configDataUri;
 
   var watchInfo = Pebble.getActiveWatchInfo();
   url += (url.indexOf('?') === -1 ? '?' : '&') + 'watchInfo=' + encodeURIComponent(JSON.stringify({
@@ -72,15 +70,11 @@ Pebble.addEventListener('showConfiguration', function () {
     }
   }
 
-  console.log('Opening Config URL: ' + url);
   Pebble.openURL(url);
 });
 
 Pebble.addEventListener('webviewclosed', function (e) {
-  console.log('Configuration window closed');
-
   if (!e.response || e.response === 'CANCELLED' || e.response === 'null' || e.response === '{}') {
-    console.log('No configuration data returned');
     return;
   }
 

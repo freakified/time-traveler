@@ -69,9 +69,6 @@ void time_traveler_view_model_set_relative_info(
 WorldClockDataViewNumbers
 time_traveler_data_point_view_model_numbers(WorldClockDataPoint *data_point);
 
-GDrawCommandImage *
-time_traveler_data_point_create_icon(WorldClockDataPoint *data_point);
-
 void time_traveler_view_model_fill_strings_and_pagination(
     WorldClockMainWindowViewModel *view_model, WorldClockDataPoint *data_point);
 
@@ -89,8 +86,6 @@ void time_traveler_view_model_fill_night_mode(
     WorldClockMainWindowViewModel *model, bool is_night);
 void time_traveler_view_model_fill_loading(
     WorldClockMainWindowViewModel *model);
-
-void time_traveler_view_model_deinit(WorldClockMainWindowViewModel *model);
 
 GColor time_traveler_data_point_color(WorldClockDataPoint *data_point,
                                        bool is_night);

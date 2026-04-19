@@ -23,7 +23,6 @@ function getPinnedCities() {
       var settings = JSON.parse(savedSettings);
       if (settings.SETTING_PINNED_CITIES) {
         cachedPinnedCities = JSON.parse(settings.SETTING_PINNED_CITIES);
-        console.log('Using pinned cities from settings:', cachedPinnedCities);
         return cachedPinnedCities;
       }
     }
@@ -189,10 +188,6 @@ function sendCityData(coords, locationAvailable) {
   lastSentCityData = blob;
   if (locationAvailable !== null && locationAvailable !== undefined) {
     lastSentLocationAvailable = locationAvailable;
-  }
-
-  if (matchedCityIndex >= 0) {
-    console.log('User matched to pinned city at index ' + matchedCityIndex);
   }
 
   var CHUNK_SIZE = 120; // 5 cities × 24 bytes

@@ -325,8 +325,6 @@ void time_traveler_view_model_fill_night_mode(
   time_traveler_main_window_view_model_announce_changed(model);
 }
 
-void time_traveler_view_model_deinit(WorldClockMainWindowViewModel *model) {}
-
 // ============================================================
 // Dynamic city list — populated entirely from JS blob
 // (s_cities and s_num_cities are forward-declared at the top)

@@ -587,7 +587,6 @@ static void main_window_load(Window *window) {
 static void main_window_unload(Window *window) {
   WorldClockData *data = window_get_user_data(window);
   data->view_model.announce_changed = NULL;
-  time_traveler_view_model_deinit(&data->view_model);
 
   layer_destroy(data->horizontal_ruler_layer);
   layer_destroy(data->map_layer);

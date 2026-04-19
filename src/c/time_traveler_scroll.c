@@ -8,6 +8,7 @@
 static void after_scroll_swap_text(Animation *animation, bool finished,
                                    void *context) {
   WorldClockData *data = window_get_user_data(time_traveler_main_window_get());
+  if (!data) return;
   WorldClockDataPoint *data_point = context;
 
   time_traveler_view_model_fill_strings_and_pagination(&data->view_model,
