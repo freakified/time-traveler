@@ -110,6 +110,7 @@ void time_traveler_data_set_user_matched_city(int index);
 int time_traveler_data_get_user_matched_city(void);
 void time_traveler_data_clear_user_matched_city(void);
 void time_traveler_data_set_date_format(int8_t format);
+int8_t time_traveler_data_get_date_format(void);
 
 WorldClockDataPoint *time_traveler_data_point_at(int idx);
 WorldClockDataPoint *time_traveler_data_point_delta(WorldClockDataPoint *dp,

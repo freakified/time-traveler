@@ -112,6 +112,10 @@ void time_traveler_data_set_date_format(int8_t format) {
   s_date_format = format;
 }
 
+int8_t time_traveler_data_get_date_format(void) {
+  return s_date_format;
+}
+
 void time_traveler_data_set_user_location(float lat, float lon) {
   s_user_lat = lat;
   s_user_lon = lon;

@@ -15,6 +15,7 @@ function startDstChecks() {
 
 Pebble.addEventListener("ready", function () {
   startDstChecks();
+  cityData.sendCityData(null, locationAvailable);
 
   if (navigator.geolocation) {
     navigator.geolocation.getCurrentPosition(function (pos) {

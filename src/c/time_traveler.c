@@ -6,12 +6,12 @@
 #include "time_traveler_overlay.h"
 #include <pebble.h>
 
-#define PERSIST_KEY_USER_CITY_INDEX 100
 #define PERSIST_KEY_CITY_DATA_BLOB 105  // bumped to avoid replaying old-format blobs
 #define PERSIST_KEY_USER_LAT 102
 #define PERSIST_KEY_USER_LON 103
 #define PERSIST_KEY_USER_MATCHED_CITY 106
 #define PERSIST_KEY_USER_UTC_OFFSET_MINUTES 107
+#define PERSIST_KEY_DATE_FORMAT 108
 
 static void set_data_point(WorldClockData *data, WorldClockDataPoint *dp) {
   if (!dp) return;
@@ -41,6 +41,8 @@ static void prv_city_data_received(const uint8_t *blob, uint16_t length,
     persist_write_int(PERSIST_KEY_USER_UTC_OFFSET_MINUTES,
                       time_traveler_data_get_user_utc_offset_minutes());
   }
+  persist_write_int(PERSIST_KEY_DATE_FORMAT,
+                    time_traveler_data_get_date_format());
 
   time_traveler_data_apply_js_blob(blob, length);
 
@@ -123,6 +125,11 @@ static void init() {
     time_traveler_data_set_user_utc_offset_minutes(offset);
   }
 
+  if (persist_exists(PERSIST_KEY_DATE_FORMAT)) {
+    time_traveler_data_set_date_format(
+        (int8_t)persist_read_int(PERSIST_KEY_DATE_FORMAT));
+  }
+
   // Check for cached city data
   if (persist_exists(PERSIST_KEY_CITY_DATA_BLOB)) {
     static uint8_t blob[MAX_JS_CITIES * CITY_BLOB_BYTES_PER_CITY]; // static to avoid stack overflow
@@ -132,17 +139,17 @@ static void init() {
     }
   }
 
+  // Always start at current location. If GPS was matched to a pinned city last
+  // time, use that city; otherwise use the synthetic current/estimated row.
   int start_index = -1;
-  if (persist_exists(PERSIST_KEY_USER_CITY_INDEX)) {
-    start_index = persist_read_int(PERSIST_KEY_USER_CITY_INDEX);
-  }
-
-  // Prefer matched city on startup if available, otherwise fall back
-  // to synthetic "CURRENT LOCATION" entry
   int matched = time_traveler_data_get_user_matched_city();
   if (matched >= 0 && matched < time_traveler_num_data_points()) {
     start_index = matched;
   } else {
+    time_traveler_data_clear_user_matched_city();
+  }
+
+  if (start_index < 0) {
     int user_idx = time_traveler_data_find_user_location_index();
     if (user_idx >= 0) {
       start_index = user_idx;
@@ -156,9 +163,11 @@ static void init() {
     }
   } 
   
-  // If still no city (e.g. no persisted location yet), show loading and wait for JS
+  // If still no city, use the watch timezone as a local estimate instead of
+  // blocking the first frame on phone data.
   if (!data->data_point) {
-    time_traveler_view_model_fill_loading(&data->view_model);
+    time_traveler_data_estimate_location_from_timezone();
+    set_data_point(data, time_traveler_data_point_at(0));
   }
 
   time_traveler_main_window_push(data);
