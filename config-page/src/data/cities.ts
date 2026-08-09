@@ -13,8 +13,8 @@ export interface CustomCity {
 }
 
 export const CITIES: City[] = [
-  { name: "PAGO PAGO", displayName: "Pago Pago", timezone: "America/Pacific", offset: -660 },
-  { name: "HONOLULU", displayName: "Honolulu", timezone: "America/Pacific", offset: -600 },
+  { name: "PAGO PAGO", displayName: "Pago Pago", timezone: "Pacific/Pago_Pago", offset: -660 },
+  { name: "HONOLULU", displayName: "Honolulu", timezone: "Pacific/Honolulu", offset: -600 },
   { name: "ANCHORAGE", displayName: "Anchorage", timezone: "America/Anchorage", offset: -540 },
   { name: "VANCOUVER", displayName: "Vancouver", timezone: "America/Vancouver", offset: -480 },
   { name: "SAN FRANCISCO", displayName: "San Francisco", timezone: "America/Los_Angeles", offset: -480 },
