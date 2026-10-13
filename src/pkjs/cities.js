@@ -1,109 +1,116 @@
 var CITIES = [
-  { name: "PAGO PAGO",         lat: -14.27, lon: -170.70, std: -660,  dst: null },
-  { name: "HONOLULU",          lat: 21.31,  lon: -157.86, std: -600,  dst: null },
-  { name: "ANCHORAGE",         lat: 61.22,  lon: -149.90, std: -540,  dst: { off: 60,  sm: 3, sw: 2, sd: 0, em: 11, ew: 1, ed: 0 } },
-  { name: "VANCOUVER",         lat: 49.28,  lon: -123.12, std: -480,  dst: { off: 60,  sm: 3, sw: 2, sd: 0, em: 11, ew: 1, ed: 0 } },
-  { name: "SAN FRANCISCO",     lat: 37.77,  lon: -122.42, std: -480,  dst: { off: 60,  sm: 3, sw: 2, sd: 0, em: 11, ew: 1, ed: 0 } },
-  { name: "EDMONTON",          lat: 53.54,  lon: -113.49, std: -420,  dst: { off: 60,  sm: 3, sw: 2, sd: 0, em: 11, ew: 1, ed: 0 } },
-  { name: "DENVER",            lat: 39.74,  lon: -104.99, std: -420,  dst: { off: 60,  sm: 3, sw: 2, sd: 0, em: 11, ew: 1, ed: 0 } },
-  { name: "MEXICO CITY",       lat: 19.43,  lon: -99.13,  std: -360,  dst: null },
-  { name: "CHICAGO",           lat: 41.88,  lon: -87.63,  std: -360,  dst: { off: 60,  sm: 3, sw: 2, sd: 0, em: 11, ew: 1, ed: 0 } },
-  { name: "NEW YORK",          lat: 40.71,  lon: -74.01,  std: -300,  dst: { off: 60,  sm: 3, sw: 2, sd: 0, em: 11, ew: 1, ed: 0 } },
-  { name: "SANTIAGO",          lat: -33.45, lon: -70.67,  std: -240,  dst: { off: 60,  sm: 9, sn: 2, sd: 0, em: 4,  en: 2, ed: 0 } },
-  { name: "HALIFAX",           lat: 44.65,  lon: -63.57,  std: -240,  dst: { off: 60,  sm: 3, sw: 2, sd: 0, em: 11, ew: 1, ed: 0 } },
-  { name: "ST. JOHNS",         lat: 47.56,  lon: -52.71,  std: -210,  dst: { off: 60,  sm: 3, sw: 2, sd: 0, em: 11, ew: 1, ed: 0 } },
-  { name: "RIO DE JANEIRO",    lat: -22.91, lon: -43.17,  std: -180,  dst: null },
-  { name: "F. DE NORONHA",     lat: -3.86,  lon: -32.42,  std: -120,  dst: null },
-  { name: "PRAIA",             lat: 14.92,  lon: -23.51,  std: -60,   dst: null },
-  { name: "UTC",               lat: 0.00,   lon: 0.00,    std: 0,     dst: null },
-  { name: "LISBON",            lat: 38.72,  lon: -9.14,   std: 0,     dst: { off: 60,  sm: 3, sw: 0, sd: 0, em: 10, ew: 0, ed: 0 } },
-  { name: "LONDON",            lat: 51.51,  lon: -0.13,   std: 0,     dst: { off: 60,  sm: 3, sw: 0, sd: 0, em: 10, ew: 0, ed: 0 } },
-  { name: "MADRID",            lat: 40.42,  lon: -3.70,   std: 60,    dst: { off: 60,  sm: 3, sw: 0, sd: 0, em: 10, ew: 0, ed: 0 } },
-  { name: "PARIS",             lat: 48.86,  lon: 2.35,    std: 60,    dst: { off: 60,  sm: 3, sw: 0, sd: 0, em: 10, ew: 0, ed: 0 } },
-  { name: "ROME",              lat: 41.90,  lon: 12.50,   std: 60,    dst: { off: 60,  sm: 3, sw: 0, sd: 0, em: 10, ew: 0, ed: 0 } },
-  { name: "BERLIN",            lat: 52.52,  lon: 13.41,   std: 60,    dst: { off: 60,  sm: 3, sw: 0, sd: 0, em: 10, ew: 0, ed: 0 } },
-  { name: "STOCKHOLM",         lat: 59.33,  lon: 18.07,   std: 60,    dst: { off: 60,  sm: 3, sw: 0, sd: 0, em: 10, ew: 0, ed: 0 } },
-  { name: "ATHENS",            lat: 37.98,  lon: 23.73,   std: 120,   dst: { off: 60,  sm: 3, sw: 0, sd: 0, em: 10, ew: 0, ed: 0 } },
-  { name: "CAIRO",             lat: 30.04,  lon: 31.24,   std: 120,   dst: { off: 60,  sm: 4, sw: 0, sd: 5, em: 10, ew: 0, ed: 4, eo: 1 } },
-  { name: "JERUSALEM",         lat: 31.77,  lon: 35.23,   std: 120,   dst: { off: 60,  sm: 3, sn: 23, sd: 5, em: 10, ew: 0, ed: 0 } },
-  { name: "MOSCOW",            lat: 55.76,  lon: 37.62,   std: 180,   dst: null },
-  { name: "JEDDAH",            lat: 21.49,  lon: 39.19,   std: 180,   dst: null },
-  { name: "TEHRAN",            lat: 35.69,  lon: 51.39,   std: 210,   dst: null },
-  { name: "DUBAI",             lat: 25.20,  lon: 55.27,   std: 240,   dst: null },
-  { name: "KABUL",             lat: 34.53,  lon: 69.17,   std: 270,   dst: null },
-  { name: "KARACHI",           lat: 24.86,  lon: 67.01,   std: 300,   dst: null },
-  { name: "DELHI",             lat: 28.61,  lon: 77.21,   std: 330,   dst: null },
-  { name: "KATHMANDU",         lat: 27.72,  lon: 85.32,   std: 345,   dst: null },
-  { name: "DHAKA",             lat: 23.81,  lon: 90.41,   std: 360,   dst: null },
-  { name: "YANGON",            lat: 16.87,  lon: 96.20,   std: 390,   dst: null },
-  { name: "BANGKOK",           lat: 13.76,  lon: 100.50,  std: 420,   dst: null },
-  { name: "SINGAPORE",         lat: 1.35,   lon: 103.82,  std: 480,   dst: null },
-  { name: "HONG KONG",         lat: 22.32,  lon: 114.17,  std: 480,   dst: null },
-  { name: "BEIJING",           lat: 39.90,  lon: 116.40,  std: 480,   dst: null },
-  { name: "TAIPEI",            lat: 25.03,  lon: 121.57,  std: 480,   dst: null },
-  { name: "SEOUL",             lat: 37.57,  lon: 126.98,  std: 540,   dst: null },
-  { name: "TOKYO",             lat: 35.68,  lon: 139.69,  std: 540,   dst: null },
-  { name: "ADELAIDE",          lat: -34.93, lon: 138.60,  std: 570,   dst: { off: 60,  sm: 10, sw: 1, sd: 0, em: 4, ew: 1, ed: 0 } },
-  { name: "GUAM",              lat: 13.44,  lon: 144.79,  std: 600,   dst: null },
-  { name: "SYDNEY",            lat: -33.87, lon: 151.21,  std: 600,   dst: { off: 60,  sm: 10, sw: 1, sd: 0, em: 4, ew: 1, ed: 0 } },
-  { name: "NOUMEA",            lat: -22.28, lon: 166.46,  std: 660,   dst: null },
-  { name: "WELLINGTON",        lat: -41.29, lon: 174.78,  std: 720,   dst: { off: 60,  sm: 9, sw: 0, sd: 0, em: 4, ew: 1, ed: 0 } }
+  { name: "PAGO PAGO",        tz: "Pacific/Pago_Pago",    lat: -14.27, lon: -170.70, std: -660 },
+  { name: "HONOLULU",         tz: "Pacific/Honolulu",     lat: 21.31,  lon: -157.86, std: -600 },
+  { name: "ANCHORAGE",        tz: "America/Anchorage",    lat: 61.22,  lon: -149.90, std: -540 },
+  { name: "VANCOUVER",        tz: "America/Vancouver",    lat: 49.28,  lon: -123.12, std: -480 },
+  { name: "SAN FRANCISCO",    tz: "America/Los_Angeles",  lat: 37.77,  lon: -122.42, std: -480 },
+  { name: "EDMONTON",         tz: "America/Edmonton",     lat: 53.54,  lon: -113.49, std: -420 },
+  { name: "DENVER",           tz: "America/Denver",       lat: 39.74,  lon: -104.99, std: -420 },
+  { name: "MEXICO CITY",      tz: "America/Mexico_City",  lat: 19.43,  lon: -99.13,  std: -360 },
+  { name: "CHICAGO",          tz: "America/Chicago",      lat: 41.88,  lon: -87.63,  std: -360 },
+  { name: "NEW YORK",         tz: "America/New_York",     lat: 40.71,  lon: -74.01,  std: -300 },
+  { name: "SANTIAGO",         tz: "America/Santiago",     lat: -33.45, lon: -70.67,  std: -240 },
+  { name: "HALIFAX",          tz: "America/Halifax",      lat: 44.65,  lon: -63.57,  std: -240 },
+  { name: "ST. JOHNS",        tz: "America/St_Johns",     lat: 47.56,  lon: -52.71,  std: -210 },
+  { name: "RIO DE JANEIRO",   tz: "America/Sao_Paulo",    lat: -22.91, lon: -43.17,  std: -180 },
+  { name: "F. DE NORONHA",    tz: "America/Noronha",      lat: -3.86,  lon: -32.42,  std: -120 },
+  { name: "PRAIA",            tz: "Atlantic/Cape_Verde",  lat: 14.92,  lon: -23.51,  std: -60 },
+  { name: "UTC",              tz: "UTC",                  lat: 0.00,   lon: 0.00,    std: 0 },
+  { name: "LISBON",           tz: "Europe/Lisbon",        lat: 38.72,  lon: -9.14,   std: 0 },
+  { name: "LONDON",           tz: "Europe/London",        lat: 51.51,  lon: -0.13,   std: 0 },
+  { name: "MADRID",           tz: "Europe/Madrid",        lat: 40.42,  lon: -3.70,   std: 60 },
+  { name: "PARIS",            tz: "Europe/Paris",         lat: 48.86,  lon: 2.35,    std: 60 },
+  { name: "ROME",             tz: "Europe/Rome",          lat: 41.90,  lon: 12.50,   std: 60 },
+  { name: "BERLIN",           tz: "Europe/Berlin",        lat: 52.52,  lon: 13.41,   std: 60 },
+  { name: "STOCKHOLM",        tz: "Europe/Stockholm",     lat: 59.33,  lon: 18.07,   std: 60 },
+  { name: "ATHENS",           tz: "Europe/Athens",        lat: 37.98,  lon: 23.73,   std: 120 },
+  { name: "CAIRO",            tz: "Africa/Cairo",         lat: 30.04,  lon: 31.24,   std: 120 },
+  { name: "JERUSALEM",        tz: "Asia/Jerusalem",       lat: 31.77,  lon: 35.23,   std: 120 },
+  { name: "MOSCOW",           tz: "Europe/Moscow",        lat: 55.76,  lon: 37.62,   std: 180 },
+  { name: "JEDDAH",           tz: "Asia/Riyadh",          lat: 21.49,  lon: 39.19,   std: 180 },
+  { name: "TEHRAN",           tz: "Asia/Tehran",          lat: 35.69,  lon: 51.39,   std: 210 },
+  { name: "DUBAI",            tz: "Asia/Dubai",           lat: 25.20,  lon: 55.27,   std: 240 },
+  { name: "KABUL",            tz: "Asia/Kabul",           lat: 34.53,  lon: 69.17,   std: 270 },
+  { name: "KARACHI",          tz: "Asia/Karachi",         lat: 24.86,  lon: 67.01,   std: 300 },
+  { name: "DELHI",            tz: "Asia/Kolkata",         lat: 28.61,  lon: 77.21,   std: 330 },
+  { name: "KATHMANDU",        tz: "Asia/Kathmandu",       lat: 27.72,  lon: 85.32,   std: 345 },
+  { name: "DHAKA",            tz: "Asia/Dhaka",           lat: 23.81,  lon: 90.41,   std: 360 },
+  { name: "YANGON",           tz: "Asia/Yangon",          lat: 16.87,  lon: 96.20,   std: 390 },
+  { name: "BANGKOK",          tz: "Asia/Bangkok",         lat: 13.76,  lon: 100.50,  std: 420 },
+  { name: "SINGAPORE",        tz: "Asia/Singapore",       lat: 1.35,   lon: 103.82,  std: 480 },
+  { name: "HONG KONG",        tz: "Asia/Hong_Kong",       lat: 22.32,  lon: 114.17,  std: 480 },
+  { name: "BEIJING",          tz: "Asia/Shanghai",        lat: 39.90,  lon: 116.40,  std: 480 },
+  { name: "TAIPEI",           tz: "Asia/Taipei",          lat: 25.03,  lon: 121.57,  std: 480 },
+  { name: "SEOUL",            tz: "Asia/Seoul",           lat: 37.57,  lon: 126.98,  std: 540 },
+  { name: "TOKYO",            tz: "Asia/Tokyo",           lat: 35.68,  lon: 139.69,  std: 540 },
+  { name: "ADELAIDE",         tz: "Australia/Adelaide",   lat: -34.93, lon: 138.60,  std: 570 },
+  { name: "GUAM",             tz: "Pacific/Guam",         lat: 13.44,  lon: 144.79,  std: 600 },
+  { name: "SYDNEY",           tz: "Australia/Sydney",     lat: -33.87, lon: 151.21,  std: 600 },
+  { name: "NOUMEA",           tz: "Pacific/Noumea",       lat: -22.28, lon: 166.46,  std: 660 },
+  { name: "WELLINGTON",       tz: "Pacific/Auckland",     lat: -41.29, lon: 174.78,  std: 720 }
 ];
 
-function nthWeekdayOfMonth(year, month, n, dayOfWeek) {
-  if (n === 0) {
-    var nextMonth = new Date(Date.UTC(year, month, 1));
-    nextMonth.setUTCDate(0);
-    var lastDay = nextMonth.getUTCDate();
-    var lastDow = nextMonth.getUTCDay();
-    var diff = lastDow - dayOfWeek;
-    if (diff < 0) diff += 7;
-    return lastDay - diff;
+// ---- Real IANA timezone data via Intl ----
+// The phone apps (JavaScriptCore on iOS, a WebView on Android) expose the OS's
+// tz database through Intl. pypkjs's V8 has an Intl object but no ICU locale
+// data, and constructing any DateTimeFormat there is a fatal, uncatchable
+// crash. supportedLocalesOf is safe to call, so probe with it first. See
+// "Timezones in the emulator" in README.md for the upstream status/workaround.
+
+var intlAvailable = null;
+var intlFormatters = {};
+
+function intlFormatter(tz) {
+  if (!intlFormatters[tz]) {
+    intlFormatters[tz] = new Intl.DateTimeFormat('en-US', {
+      timeZone: tz,
+      hour12: false,
+      year: 'numeric', month: 'numeric', day: 'numeric',
+      hour: 'numeric', minute: 'numeric'
+    });
   }
-  var first = new Date(Date.UTC(year, month - 1, 1));
-  var firstDow = first.getUTCDay();
-  var diff = dayOfWeek - firstDow;
-  if (diff < 0) diff += 7;
-  return 1 + diff + (n - 1) * 7;
+  return intlFormatters[tz];
 }
 
-// First `dayOfWeek` falling on or after `dom` (tzdata's "Sun>=2" form).
-function weekdayOnOrAfter(year, month, dom, dayOfWeek) {
-  var d = new Date(Date.UTC(year, month - 1, dom));
-  var diff = dayOfWeek - d.getUTCDay();
-  if (diff < 0) diff += 7;
-  return dom + diff;
+function intlOffsetMinutes(tz, now) {
+  var p = {};
+  intlFormatter(tz).formatToParts(now).forEach(function (part) {
+    p[part.type] = part.value;
+  });
+  // Some engines render midnight as "24" with hour12:false.
+  var wallAsUtc = Date.UTC(+p.year, +p.month - 1, +p.day, +p.hour % 24, +p.minute);
+  var subMinuteMs = now.getUTCSeconds() * 1000 + now.getUTCMilliseconds();
+  return Math.round((wallAsUtc - (now.getTime() - subMinuteMs)) / 60000);
 }
 
-// One edge of a DST rule. `w` picks the nth weekday of the month (0 = last),
-// `n` instead picks the first such weekday on or after that day of the month,
-// and `o` shifts the result by whole days (Egypt ends at 24:00, i.e. the next
-// day). Months are 1-based, weekdays 0 = Sunday.
-function transitionDate(year, month, w, dayOfWeek, n, o) {
-  var dom = (n !== undefined)
-    ? weekdayOnOrAfter(year, month, n, dayOfWeek)
-    : nthWeekdayOfMonth(year, month, w, dayOfWeek);
-  return new Date(Date.UTC(year, month - 1, dom + (o || 0)));
-}
+function hasIntlTimezones() {
+  if (intlAvailable !== null) return intlAvailable;
 
-function isDstActive(city, now) {
-  var rule = city.dst;
-  if (!rule) return false;
-
-  var year = now.getUTCFullYear();
-  var startDay = transitionDate(year, rule.sm, rule.sw, rule.sd, rule.sn, rule.so);
-  var endDay = transitionDate(year, rule.em, rule.ew, rule.ed, rule.en, rule.eo);
-
-  // Southern hemisphere rules straddle the new year (e.g. Oct -> Apr), so the
-  // active window wraps around instead of being a plain range.
-  if (startDay > endDay) return now >= startDay || now < endDay;
-  return now >= startDay && now < endDay;
+  intlAvailable = false;
+  try {
+    if (typeof Intl !== 'undefined' && Intl.DateTimeFormat &&
+        Intl.DateTimeFormat.supportedLocalesOf(['en-US']).length > 0) {
+      // Sanity check against a known DST zone before trusting the engine.
+      intlAvailable =
+        intlOffsetMinutes('America/New_York', new Date(Date.UTC(2026, 0, 15, 12))) === -300 &&
+        intlOffsetMinutes('America/New_York', new Date(Date.UTC(2026, 6, 15, 12))) === -240;
+    }
+  } catch (e) {
+    console.log('Intl timezone probe failed: ' + e);
+  }
+  console.log('Timezone source: ' + (intlAvailable ? 'Intl' : 'standard offsets (no DST)'));
+  return intlAvailable;
 }
 
 function cityOffsetMinutes(city, now) {
-  if (isDstActive(city, now)) {
-    return city.std + city.dst.off;
+  if (hasIntlTimezones()) {
+    try {
+      return intlOffsetMinutes(city.tz, now);
+    } catch (e) {
+      console.log('Intl offset failed for ' + city.tz + ': ' + e);
+    }
   }
+  // No usable Intl (only the emulator so far): standard time, ignoring DST.
   return city.std;
 }
 
