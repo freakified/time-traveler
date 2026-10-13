@@ -124,75 +124,8 @@ function dayLabelForCity(city, now) {
   return 0;
 }
 
-function findNearestCityByCoords(lat, lon) {
-  var bestIdx = 16;
-  var bestDist = 999999;
-
-  for (var i = 0; i < CITIES.length; i++) {
-    var dlat = CITIES[i].lat - lat;
-    var dlon = CITIES[i].lon - lon;
-    var dist = dlat * dlat + dlon * dlon;
-    if (dist < bestDist) {
-      bestDist = dist;
-      bestIdx = i;
-    }
-  }
-  return bestIdx;
-}
-
-function detectUserCityIndex(now) {
-  var userOffsetMin = -now.getTimezoneOffset();
-  var bestIdx = 16;
-  var bestDiff = Math.abs(userOffsetMin);
-
-  for (var i = 0; i < CITIES.length; i++) {
-    var diff = Math.abs(userOffsetMin - cityOffsetMinutes(CITIES[i], now));
-    if (diff < bestDiff) {
-      bestDiff = diff;
-      bestIdx = i;
-    }
-  }
-  return bestIdx;
-}
-
-function detectUserCityIndexGeolocation(callback) {
-  if (typeof navigator === "undefined" || !navigator.geolocation) {
-    callback(-1);
-    return;
-  }
-
-  var done = false;
-  var timer = setTimeout(function() {
-    if (!done) {
-      done = true;
-      callback(-1);
-    }
-  }, 3000);
-
-  navigator.geolocation.getCurrentPosition(function(pos) {
-    if (!done) {
-      done = true;
-      clearTimeout(timer);
-      var idx = findNearestCityByCoords(pos.coords.latitude, pos.coords.longitude);
-      callback(idx);
-    }
-  }, function() {
-    if (!done) {
-      done = true;
-      clearTimeout(timer);
-      callback(-1);
-    }
-  }, {
-    enableHighAccuracy: false,
-    timeout: 5000,
-    maximumAge: 600000
-  });
-}
-
 module.exports = {
   CITIES: CITIES,
   cityOffsetMinutes: cityOffsetMinutes,
-  dayLabelForCity: dayLabelForCity,
-  detectUserCityIndex: detectUserCityIndex,
-  detectUserCityIndexGeolocation: detectUserCityIndexGeolocation
+  dayLabelForCity: dayLabelForCity
 };

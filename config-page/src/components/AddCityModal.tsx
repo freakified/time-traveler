@@ -12,21 +12,13 @@ import {
   ListBoxItem,
   useAsyncList,
 } from 'react-aria-components';
-import { CITIES } from '../data/cities';
 import type { CustomCity } from '../data/cities';
-import { formatOffset } from '../utils/string';
+import { formatOffset, truncateUtf8, utf8Length } from '../utils/string';
+import { allTimeZones, closestBuiltInCityName, lookupTimeZone, offsetMinutes, standardOffsetMinutes } from '../utils/timezone';
 import { GeolocateIcon } from './icons';
 
-const MAX_NAME_LENGTH = 15;
-
-const guessTzCityFromLon = (lon: number): string => {
-  const estimatedOffsetMinutes = Math.round(lon / 15) * 60;
-  return CITIES.reduce((best, city) =>
-    Math.abs(city.offset - estimatedOffsetMinutes) < Math.abs(best.offset - estimatedOffsetMinutes)
-      ? city
-      : best
-  ).name;
-};
+// Bytes of UTF-8, matching the watch's name buffer
+const MAX_NAME_BYTES = 15;
 
 interface NominatimAddress {
   city?: string;
@@ -53,7 +45,7 @@ export const AddCityModal: React.FC<AddCityModalProps> = ({ isOpen, onOpenChange
   const [cityName, setCityName] = React.useState('');
   const [lat, setLat] = React.useState<number | null>(null);
   const [lon, setLon] = React.useState<number | null>(null);
-  const [tzCityName, setTzCityName] = React.useState('UTC');
+  const [tz, setTz] = React.useState('UTC');
   const [geoLoading, setGeoLoading] = React.useState(false);
   const [geoError, setGeoError] = React.useState(false);
   // 'none' | 'geo' | 'search' — tracks how the location was set
@@ -87,7 +79,7 @@ export const AddCityModal: React.FC<AddCityModalProps> = ({ isOpen, onOpenChange
     setCityName('');
     setLat(null);
     setLon(null);
-    setTzCityName('UTC');
+    setTz('UTC');
     setGeoLoading(false);
     setGeoError(false);
     setLocationSource('none');
@@ -97,7 +89,7 @@ export const AddCityModal: React.FC<AddCityModalProps> = ({ isOpen, onOpenChange
   const resetLocation = () => {
     setLat(null);
     setLon(null);
-    setTzCityName('UTC');
+    setTz('UTC');
     setGeoLoading(false);
     setGeoError(false);
     setLocationSource('none');
@@ -113,13 +105,13 @@ export const AddCityModal: React.FC<AddCityModalProps> = ({ isOpen, onOpenChange
     const parsedLon = parseFloat(result.lon);
     setLat(parsedLat);
     setLon(parsedLon);
-    setTzCityName(guessTzCityFromLon(parsedLon));
+    setTz(lookupTimeZone(parsedLat, parsedLon));
 
     const addr = result.address;
     const shortName = (
       addr?.city || addr?.town || addr?.village || addr?.municipality || result.display_name.split(',')[0]
-    ).trim().slice(0, MAX_NAME_LENGTH);
-    setCityName(shortName);
+    ).trim();
+    setCityName(truncateUtf8(shortName, MAX_NAME_BYTES));
 
     // Show concise label in the input without triggering another search
     justSelectedRef.current = true;
@@ -135,7 +127,7 @@ export const AddCityModal: React.FC<AddCityModalProps> = ({ isOpen, onOpenChange
       (pos) => {
         setLat(pos.coords.latitude);
         setLon(pos.coords.longitude);
-        setTzCityName(guessTzCityFromLon(pos.coords.longitude));
+        setTz(lookupTimeZone(pos.coords.latitude, pos.coords.longitude));
         setLocationSource('geo');
         setGeoLoading(false);
       },
@@ -149,10 +141,23 @@ export const AddCityModal: React.FC<AddCityModalProps> = ({ isOpen, onOpenChange
 
   const handleAdd = () => {
     if (!cityName.trim() || lat === null || lon === null) return;
-    onAdd({ displayName: cityName.trim(), lat, lon, tzCityName });
+    onAdd({
+      displayName: cityName.trim(),
+      lat,
+      lon,
+      tz,
+      std: standardOffsetMinutes(tz),
+      tzCityName: closestBuiltInCityName(tz),
+    });
     resetForm();
     onOpenChange(false);
   };
+
+  // Ocean coordinates resolve to Etc/GMT±N zones, which supportedValuesOf leaves out.
+  const zoneOptions = React.useMemo(() => {
+    const zones = allTimeZones();
+    return zones.some(z => z.tz === tz) ? zones : [{ tz, offset: offsetMinutes(tz) }, ...zones];
+  }, [tz]);
 
   const canAdd = cityName.trim().length > 0 && lat !== null && lon !== null;
   const showSuggestions =
@@ -278,16 +283,15 @@ export const AddCityModal: React.FC<AddCityModalProps> = ({ isOpen, onOpenChange
                       Name on watch
                     </label>
                     <span className="halite-add-city-counter">
-                      {cityName.length}/{MAX_NAME_LENGTH}
+                      {utf8Length(cityName)}/{MAX_NAME_BYTES}
                     </span>
                   </div>
                   <input
                     id="add-city-name"
                     className="halite-input"
                     type="text"
-                    maxLength={MAX_NAME_LENGTH}
                     value={cityName}
-                    onChange={(e) => setCityName(e.target.value)}
+                    onChange={(e) => setCityName(truncateUtf8(e.target.value, MAX_NAME_BYTES))}
                   />
                 </div>
 
@@ -297,12 +301,12 @@ export const AddCityModal: React.FC<AddCityModalProps> = ({ isOpen, onOpenChange
                   </label>
                   <select
                     id="add-city-tz"
-                    value={tzCityName}
-                    onChange={(e) => setTzCityName(e.target.value)}
+                    value={tz}
+                    onChange={(e) => setTz(e.target.value)}
                   >
-                    {CITIES.map((city) => (
-                      <option key={city.name} value={city.name}>
-                        {city.timezone} ({formatOffset(city.offset)})
+                    {zoneOptions.map((zone) => (
+                      <option key={zone.tz} value={zone.tz}>
+                        {zone.tz.replace(/_/g, ' ')} ({formatOffset(zone.offset)})
                       </option>
                     ))}
                   </select>

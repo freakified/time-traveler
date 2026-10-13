@@ -74,8 +74,29 @@ function pushInt16BE(blob, value) {
   blob.push(v & 0xFF);
 }
 
+// The watch renders names as UTF-8, and Pebble draws nothing for a string with
+// invalid UTF-8, so names can't be written one byte per character (ö is 0xF6 in
+// UTF-16 but C3 B6 in UTF-8). Truncates on a character boundary.
+function utf8Bytes(str, maxBytes) {
+  var bytes = [];
+  for (var i = 0; i < str.length; i++) {
+    var c = str.charCodeAt(i);
+    if (c >= 0xD800 && c < 0xDC00 && i + 1 < str.length) {
+      c = 0x10000 + ((c - 0xD800) << 10) + (str.charCodeAt(++i) - 0xDC00);
+    }
+    var ch;
+    if (c < 0x80) ch = [c];
+    else if (c < 0x800) ch = [0xC0 | (c >> 6), 0x80 | (c & 0x3F)];
+    else if (c < 0x10000) ch = [0xE0 | (c >> 12), 0x80 | ((c >> 6) & 0x3F), 0x80 | (c & 0x3F)];
+    else ch = [0xF0 | (c >> 18), 0x80 | ((c >> 12) & 0x3F), 0x80 | ((c >> 6) & 0x3F), 0x80 | (c & 0x3F)];
+    if (bytes.length + ch.length > maxBytes) break;
+    bytes.push.apply(bytes, ch);
+  }
+  return bytes;
+}
+
 // New blob format: 24 bytes per city
-//   bytes 0-15:  city name, null-terminated (up to 15 chars)
+//   bytes 0-15:  city name as UTF-8, null-terminated (up to 15 bytes)
 //   bytes 16-17: latitude  × 100 as int16, big-endian
 //   bytes 18-19: longitude × 100 as int16, big-endian
 //   bytes 20-21: offset_minutes as int16, big-endian
@@ -89,11 +110,8 @@ function findNearestEntryByCoords(entries, lat, lon) {
   var bestDist = PROXIMITY_THRESHOLD_SQ;
 
   for (var i = 0; i < entries.length; i++) {
-    var entry = entries[i];
-    var entryLat = entry.type === 'standard' ? entry.city.lat : entry.cc.lat;
-    var entryLon = entry.type === 'standard' ? entry.city.lon : entry.cc.lon;
-    var dlat = entryLat - lat;
-    var dlon = entryLon - lon;
+    var dlat = entries[i].lat - lat;
+    var dlon = entries[i].lon - lon;
     var dist = dlat * dlat + dlon * dlon;
     if (dist < bestDist) {
       bestDist = dist;
@@ -108,23 +126,29 @@ function computeCityDataBlob(now, coords) {
   var pinnedNames = getPinnedCities();
   var customCities = getCustomCities();
 
-  // Build a flat list of entries (standard + custom), then sort west→east by lon
+  // Build a flat list of entries (standard + custom), then sort west→east by lon.
+  // `zone` is anything cityOffsetMinutes accepts: { tz, std }.
   var entries = [];
 
   for (var i = 0; i < CITIES.length; i++) {
     var city = CITIES[i];
     if (!pinnedNames.includes(city.name)) continue;
-    entries.push({ type: 'standard', city: city, lon: city.lon });
+    entries.push({ name: city.name, lat: city.lat, lon: city.lon, zone: city });
   }
 
   for (var j = 0; j < customCities.length; j++) {
     var cc = customCities[j];
-    var refCity = null;
-    for (var k = 0; k < CITIES.length; k++) {
-      if (CITIES[k].name === cc.tzCityName) { refCity = CITIES[k]; break; }
+    var zone = null;
+    if (cc.tz) {
+      zone = { tz: cc.tz, std: cc.std || 0 };
+    } else {
+      // Saved before custom cities had their own IANA zone
+      for (var k = 0; k < CITIES.length; k++) {
+        if (CITIES[k].name === cc.tzCityName) { zone = CITIES[k]; break; }
+      }
     }
-    if (!refCity) continue;
-    entries.push({ type: 'custom', cc: cc, refCity: refCity, lon: cc.lon });
+    if (!zone) continue;
+    entries.push({ name: cc.displayName.toUpperCase(), lat: cc.lat, lon: cc.lon, zone: zone });
   }
 
   entries.sort(function (a, b) { return a.lon - b.lon; });
@@ -138,29 +162,14 @@ function computeCityDataBlob(now, coords) {
   var blob = [];
   for (var e = 0; e < entries.length; e++) {
     var entry = entries[e];
-
-    if (entry.type === 'standard') {
-      var sc = entry.city;
-      var name = sc.name.substring(0, 15);
-      for (var n = 0; n < 16; n++) blob.push(n < name.length ? name.charCodeAt(n) : 0);
-      pushInt16BE(blob, Math.round(sc.lat * 100));
-      pushInt16BE(blob, Math.round(sc.lon * 100));
-      pushInt16BE(blob, timezone.cityOffsetMinutes(sc, now));
-      var label = timezone.dayLabelForCity(sc, now);
-      blob.push(label < 0 ? FULL_NIGHT_SENTINEL : label);
-      blob.push(0); // is_night
-    } else {
-      var cu = entry.cc;
-      var rf = entry.refCity;
-      var ccName = cu.displayName.toUpperCase().substring(0, 15);
-      for (var cn = 0; cn < 16; cn++) blob.push(cn < ccName.length ? ccName.charCodeAt(cn) : 0);
-      pushInt16BE(blob, Math.round(cu.lat * 100));
-      pushInt16BE(blob, Math.round(cu.lon * 100));
-      pushInt16BE(blob, timezone.cityOffsetMinutes(rf, now));
-      var ccLabel = timezone.dayLabelForCity(rf, now);
-      blob.push(ccLabel < 0 ? FULL_NIGHT_SENTINEL : ccLabel);
-      blob.push(0); // is_night
-    }
+    var name = utf8Bytes(entry.name, 15);
+    for (var n = 0; n < 16; n++) blob.push(n < name.length ? name[n] : 0);
+    pushInt16BE(blob, Math.round(entry.lat * 100));
+    pushInt16BE(blob, Math.round(entry.lon * 100));
+    pushInt16BE(blob, timezone.cityOffsetMinutes(entry.zone, now));
+    var label = timezone.dayLabelForCity(entry.zone, now);
+    blob.push(label < 0 ? FULL_NIGHT_SENTINEL : label);
+    blob.push(0); // is_night
   }
 
   return { blob: blob, matchedCityIndex: matchedCityIndex };

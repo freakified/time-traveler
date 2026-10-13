@@ -1,8 +1,8 @@
 import React from 'react';
 import { Button } from 'react-aria-components';
 import type { CustomCity } from '../data/cities';
-import { CITIES } from '../data/cities';
 import { formatOffset } from '../utils/string';
+import { customCityZone, offsetMinutes } from '../utils/timezone';
 import { FormItemLabel } from './FormItem';
 import { AddCityModal } from './AddCityModal';
 import { TrashIcon, PlusIcon } from './icons';
@@ -25,7 +25,7 @@ export const CustomCitiesSection: React.FC<CustomCitiesSectionProps> = ({
   return (
     <>
       {customCities.map((city, index) => {
-        const refCity = CITIES.find(c => c.name === city.tzCityName);
+        const offset = formatOffset(offsetMinutes(customCityZone(city)));
         return (
           <div key={`custom-${index}`} className="city-item">
             <div className="city-toggle-content">
@@ -38,7 +38,7 @@ export const CustomCitiesSection: React.FC<CustomCitiesSectionProps> = ({
               </Button>
               <FormItemLabel
                 label={city.displayName}
-                description={refCity ? `Custom city · ${formatOffset(refCity.offset)}` : 'Custom city'}
+                description={`Custom city · ${offset}`}
               />
             </div>
           </div>

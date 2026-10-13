@@ -3,6 +3,7 @@ import { Switch } from 'react-aria-components';
 import { FormItemLabel } from './FormItem';
 import { City } from '../data/cities';
 import { formatOffset } from '../utils/string';
+import { offsetMinutes } from '../utils/timezone';
 
 const PinIcon = ({ filled }: { filled: boolean }) => (
   <svg
@@ -73,7 +74,7 @@ export const CityList: React.FC<{
                   </div>
                   <FormItemLabel 
                     label={city.displayName} 
-                    description={formatOffset(city.offset)}
+                    description={formatOffset(offsetMinutes(city.timezone))}
                   />
                 </div>
               </Switch>

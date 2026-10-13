@@ -3,18 +3,20 @@ var timezone = require('./cities');
 
 var configDataUri = 'https://freakified.github.io/time-traveler/';
 
-var dstCheckTimer = null;
+var refreshTimer = null;
 var locationAvailable = null;
 
-function startDstChecks() {
-  if (dstCheckTimer) clearInterval(dstCheckTimer);
-  dstCheckTimer = setInterval(function () {
+// Offsets and day labels change over time (DST transitions, midnight), so
+// recompute periodically; sendCityData skips the send if nothing changed.
+function startPeriodicRefresh() {
+  if (refreshTimer) clearInterval(refreshTimer);
+  refreshTimer = setInterval(function () {
     cityData.sendCityData(null, locationAvailable);
   }, 30 * 60 * 1000);
 }
 
 Pebble.addEventListener("ready", function () {
-  startDstChecks();
+  startPeriodicRefresh();
   cityData.sendCityData(null, locationAvailable);
 
   if (navigator.geolocation) {
