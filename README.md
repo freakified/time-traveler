@@ -3,27 +3,3 @@
 *Let's recreate the fun experience of classic digital world time watches!*
 
 ![Banner depicting a Pebble Time 2 running the Time Traveler app](/branding/banner-emery@2x.png)
-
-## Development
-
-### Timezones in the emulator
-
-City offsets come from the phone's own IANA timezone database via `Intl` (see `src/pkjs/cities.js`). This works on both the Android and iOS apps. If `Intl` isn't usable, the app falls back to each city's standard offset and ignores DST.
-
-The emulator's JS runtime (pypkjs) ships a broken STPyV8 that never loads its ICU data. Creating any `Intl.DateTimeFormat`, or calling `toLocaleString` with options, kills the whole JS runtime with `Fatal process out of memory: DateTimePatternGeneratorCache::CreateGenerator`. That's a fatal abort, not an exception, so `try/catch` can't guard against it. The app detects the problem safely and uses the fallback, so the emulator shows standard time for every city.
-
-- Upstream: [cloudflare/stpyv8#125](https://github.com/cloudflare/stpyv8/issues/125) (unfixed, repo archived)
-- Pebble: [coredevices/PebbleOS#1579](https://github.com/coredevices/PebbleOS/issues/1579), fixed by [coredevices/pypkjs#5](https://github.com/coredevices/pypkjs/pull/5) (merged July 2026). It still wasn't in a release as of October 2026: PyPI was on pypkjs 2.0.7.
-
-**Is it fixed for you?** Check whether your installed pypkjs is newer than 2.0.7 (`pip show pypkjs`, or look in pebble-tool's environment). If not, set `ICU_DATA` to a folder containing the bundled ICU data under ICU's expected name:
-
-```sh
-mkdir -p ~/Library/Application\ Support/pypkjs
-cp ~/.local/share/uv/tools/pebble-tool/lib/python3.13/site-packages/stpyv8-icu/icudtl.dat \
-   ~/Library/Application\ Support/pypkjs/icudt74l.dat
-export ICU_DATA=~/Library/Application\ Support/pypkjs   # e.g. in ~/.zshrc
-```
-
-Adjust the paths to match your pebble-tool install and STPyV8's ICU version (`icudt<version>l.dat`). The JS log prints `Timezone source: Intl` when it's working, and `standard offsets (no DST)` when the fallback is in use.
-
-Once a fixed pypkjs is released and in common use, this section can go.
